@@ -25,3 +25,9 @@ qr_codes/*.png
 .vscode/
 *.DS_Store
 .env
+
+# Test artifacts
+tests/_test_data/
+.pytest_cache/
+htmlcov/
+.coverage

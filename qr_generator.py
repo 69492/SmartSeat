@@ -10,16 +10,21 @@ seat allocation and saves it to the qr_codes/ directory.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any
 
 import qrcode
 
+import config
+
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Directory where QR images are saved
 # ---------------------------------------------------------------------------
 
-QR_DIR = os.path.join(os.path.dirname(__file__), "qr_codes")
+QR_DIR = config.QR_DIR
 
 
 def generate_qr(booking: dict[str, Any], output_dir: str = QR_DIR) -> str:

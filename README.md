@@ -58,6 +58,8 @@ Example: A berth from Howrah→New Delhi might be occupied for Howrah→Gaya but
 | QR Generation | qrcode + Pillow |
 | Server | Uvicorn (ASGI) |
 | Data Validation | Pydantic v2 |
+| Testing | pytest + httpx |
+| Containerisation | Docker |
 
 ---
 
@@ -66,6 +68,7 @@ Example: A berth from Howrah→New Delhi might be occupied for Howrah→Gaya but
 ```
 SmartSeat/
 ├── app.py                  # FastAPI application & all endpoints
+├── config.py               # Centralised configuration (env vars)
 ├── data_generator.py       # Synthetic train data generator
 ├── allocation_engine.py    # CSP-based seat allocation
 ├── ml_model.py             # ML ranking (Decision Tree)
@@ -75,6 +78,10 @@ SmartSeat/
 │   ├── train_data.json     # Generated train/berth data (auto-created)
 │   └── simulation_state.json  # Current station per train (auto-created)
 ├── qr_codes/               # Generated QR PNG images (auto-created)
+├── tests/                  # pytest test suite
+├── Dockerfile              # Production container image
+├── docker-compose.yml      # Local/cloud orchestration
+├── .env.example            # Environment variable template
 ├── requirements.txt
 └── README.md
 ```
@@ -95,7 +102,14 @@ cd SmartSeat
 pip install -r requirements.txt
 ```
 
-### 2. (Optional) Pre-generate train data
+### 2. (Optional) Configure environment
+
+```bash
+cp .env.example .env
+# Edit .env to override defaults (port, log level, etc.)
+```
+
+### 3. (Optional) Pre-generate train data
 
 ```bash
 python data_generator.py
@@ -103,7 +117,7 @@ python data_generator.py
 
 Train data is also auto-generated on first API request if the file does not exist.
 
-### 3. Start the API server
+### 4. Start the API server
 
 ```bash
 python app.py
@@ -115,9 +129,15 @@ Or using uvicorn directly:
 uvicorn app:app --host 0.0.0.0 --port 5000 --reload
 ```
 
-### 4. Open Swagger UI
+### 5. Open Swagger UI
 
 Navigate to **http://localhost:5000/docs** for interactive API documentation.
+
+### 6. Run tests
+
+```bash
+python -m pytest tests/ -v
+```
 
 ---
 
@@ -223,6 +243,20 @@ curl http://localhost:5000/qr/12301_S1_3.png --output booking_qr.png
 
 ## Cloud Deployment
 
+### Docker
+
+```bash
+# Build and run with Docker
+docker build -t smartseat .
+docker run -p 5000:5000 smartseat
+
+# Or use Docker Compose
+docker compose up --build
+```
+
+The container exposes port **5000** by default. Override behaviour with environment
+variables — see `.env.example` for the full list.
+
 ### Render / Railway
 
 1. Push the repository to GitHub.
@@ -233,3 +267,22 @@ curl http://localhost:5000/qr/12301_S1_3.png --output booking_qr.png
 4. Deploy — the API will be live at the assigned URL.
 
 > **Note:** The `data/` and `qr_codes/` directories are created automatically at runtime if they don't exist.
+
+---
+
+## Configuration
+
+All settings are loaded from environment variables (see `.env.example`):
+
+| Variable | Default | Description |
+|---|---|---|
+| `API_HOST` | `0.0.0.0` | Bind address |
+| `API_PORT` | `5000` | Listen port |
+| `API_RELOAD` | `false` | Auto-reload on code changes (dev only) |
+| `LOG_LEVEL` | `info` | Logging verbosity |
+| `DATA_DIR` | `./data` | Train data directory |
+| `QR_DIR` | `./qr_codes` | QR code output directory |
+| `DATA_SEED` | `42` | Random seed for data generation |
+| `ML_MAX_DEPTH` | `6` | Decision tree max depth |
+| `ML_RANDOM_STATE` | `42` | ML model random seed |
+| `ML_TRAINING_SAMPLES` | `500` | Synthetic training samples |

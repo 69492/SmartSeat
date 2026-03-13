@@ -28,11 +28,16 @@ Features used for ranking
 
 from __future__ import annotations
 
+import logging
 import random
 from typing import Any
 
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
+
+import config
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Encoding helpers
@@ -63,7 +68,9 @@ def _encode_candidate(candidate: dict[str, Any]) -> list[float]:
 # Synthetic training data generator
 # ---------------------------------------------------------------------------
 
-def _generate_training_data(n_samples: int = 500) -> tuple[np.ndarray, np.ndarray]:
+def _generate_training_data(
+    n_samples: int = config.ML_TRAINING_SAMPLES,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Build a synthetic labelled dataset that encodes commonsense seat
     preferences for Indian Railways sleeper class.
@@ -118,7 +125,10 @@ class BerthRanker:
     def train(self) -> None:
         """Train the model on synthetic preference data."""
         X, y = _generate_training_data()
-        self._model = DecisionTreeClassifier(max_depth=6, random_state=42)
+        self._model = DecisionTreeClassifier(
+            max_depth=config.ML_MAX_DEPTH,
+            random_state=config.ML_RANDOM_STATE,
+        )
         self._model.fit(X, y)
 
     def rank(self, candidates: list[dict[str, Any]]) -> dict[str, Any]:

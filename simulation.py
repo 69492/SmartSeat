@@ -12,16 +12,20 @@ that station as their destination are automatically released.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any
 
+import config
 from allocation_engine import _load_data, _save_data, _find_train
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # State file — tracks current station index per train
 # ---------------------------------------------------------------------------
 
-_STATE_PATH = os.path.join(os.path.dirname(__file__), "data", "simulation_state.json")
+_STATE_PATH = config.SIMULATION_STATE_PATH
 
 
 def _load_state() -> dict[str, int]:

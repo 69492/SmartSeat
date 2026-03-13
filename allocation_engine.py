@@ -20,14 +20,19 @@ module (ml_model.py).  If ML is unavailable, the first valid berth is used.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any
+
+import config
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Data helpers
 # ---------------------------------------------------------------------------
 
-DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "train_data.json")
+DATA_PATH = config.DATA_PATH
 
 
 def _load_data(path: str = DATA_PATH) -> list[dict[str, Any]]:
