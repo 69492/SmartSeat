@@ -44,7 +44,8 @@ Example: A berth from Howrah→New Delhi might be occupied for Howrah→Gaya but
 3. **ML Recommendation** — Decision Tree ranks multiple valid berths on journey distance, berth type, and coach preference.
 4. **QR Code Generator** — Produces a QR image with booking details after allocation.
 5. **FastAPI REST Backend** — Clean RESTful API with Swagger UI at `/docs`.
-6. **Real-Time Simulation** — Advance train position station by station; expired segments auto-release.
+6. **Web Frontend** — Responsive single-page UI at `/ui` built with pure HTML, CSS, and vanilla JavaScript.
+7. **Real-Time Simulation** — Advance train position station by station; expired segments auto-release.
 
 ---
 
@@ -52,6 +53,7 @@ Example: A berth from Howrah→New Delhi might be occupied for Howrah→Gaya but
 
 | Layer | Technology |
 |---|---|
+| Frontend | HTML / CSS / vanilla JavaScript |
 | Backend Framework | FastAPI (Python 3.10+) |
 | ML Library | scikit-learn (Decision Tree) |
 | Data Storage | JSON files |
@@ -74,6 +76,8 @@ SmartSeat/
 ├── ml_model.py             # ML ranking (Decision Tree)
 ├── qr_generator.py         # QR code image generation
 ├── simulation.py           # Real-time station pointer simulation
+├── static/
+│   └── index.html          # Frontend UI (HTML + CSS + JS)
 ├── data/
 │   ├── train_data.json     # Generated train/berth data (auto-created)
 │   └── simulation_state.json  # Current station per train (auto-created)
@@ -129,11 +133,15 @@ Or using uvicorn directly:
 uvicorn app:app --host 0.0.0.0 --port 5000 --reload
 ```
 
-### 5. Open Swagger UI
+### 5. Open the Web UI
+
+Navigate to **http://localhost:5000/ui** for the seat allocation frontend.
+
+### 6. Open Swagger UI
 
 Navigate to **http://localhost:5000/docs** for interactive API documentation.
 
-### 6. Run tests
+### 7. Run tests
 
 ```bash
 python -m pytest tests/ -v

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartSeat — Dynamic Train Seat Allocation</title>
+
+  <!-- =====================================================================
+       STYLES — embedded for zero-dependency deployment
+       ===================================================================== -->
+  <style>
+    /* ---------- Reset & base ---------- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #eef2f7;
+      color: #2c3e50;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ---------- Header ---------- */
+    header {
+      width: 100%;
+      background: linear-gradient(135deg, #1a237e, #283593);
+      color: #fff;
+      text-align: center;
+      padding: 28px 16px 22px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: .5px; }
+    header p  { margin-top: 6px; font-size: .95rem; opacity: .85; }
+
+    /* ---------- Card container ---------- */
+    .card {
+      background: #fff;
+      width: 94%;
+      max-width: 520px;
+      margin: 30px auto;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.08);
+      padding: 28px 24px;
+    }
+
+    .card h2 {
+      font-size: 1.15rem;
+      margin-bottom: 18px;
+      color: #1a237e;
+      border-bottom: 2px solid #e8eaf6;
+      padding-bottom: 8px;
+    }
+
+    /* ---------- Form controls ---------- */
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: .9rem;
+    }
+
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cfd8dc;
+      border-radius: 6px;
+      font-size: .95rem;
+      background: #fafafa;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      cursor: pointer;
+    }
+    select:focus { outline: none; border-color: #3f51b5; box-shadow: 0 0 0 3px rgba(63,81,181,.15); }
+
+    /* ---------- Button ---------- */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s, transform .1s;
+    }
+    .btn-primary {
+      background: #1a237e;
+      color: #fff;
+    }
+    .btn-primary:hover  { background: #283593; }
+    .btn-primary:active { transform: scale(.98); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ---------- Result panel ---------- */
+    #result-panel {
+      display: none;          /* shown by JS after allocation */
+    }
+
+    .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+    }
+    .result-table th,
+    .result-table td {
+      text-align: left;
+      padding: 8px 10px;
+      font-size: .9rem;
+      border-bottom: 1px solid #eceff1;
+    }
+    .result-table th { width: 45%; color: #546e7a; font-weight: 600; }
+    .result-table td { color: #263238; }
+
+    /* ---------- QR code image ---------- */
+    .qr-wrapper {
+      text-align: center;
+      margin-top: 12px;
+    }
+    .qr-wrapper img {
+      max-width: 180px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+    }
+    .qr-wrapper p {
+      margin-top: 6px;
+      font-size: .8rem;
+      color: #78909c;
+    }
+
+    /* ---------- Alerts ---------- */
+    .alert {
+      padding: 12px 14px;
+      border-radius: 6px;
+      font-size: .9rem;
+      margin-bottom: 16px;
+      display: none;          /* toggled by JS */
+    }
+    .alert-error   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+    .alert-success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+
+    /* ---------- Loading spinner ---------- */
+    .spinner {
+      display: none;
+      text-align: center;
+      padding: 14px;
+    }
+    .spinner::after {
+      content: '';
+      display: inline-block;
+      width: 28px; height: 28px;
+      border: 3px solid #c5cae9;
+      border-top-color: #1a237e;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---------- Footer ---------- */
+    footer {
+      margin-top: auto;
+      padding: 18px 16px;
+      text-align: center;
+      font-size: .8rem;
+      color: #90a4ae;
+    }
+
+    /* ---------- Responsive tweaks ---------- */
+    @media (max-width: 480px) {
+      header h1 { font-size: 1.25rem; }
+      .card { padding: 20px 16px; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ======================== HEADER ======================== -->
+  <header>
+    <h1>Dynamic Train Seat Allocation System</h1>
+    <p>Smart Seat Allocation System — Segment-Wise Berth Availability</p>
+  </header>
+
+  <!-- ======================== MAIN CARD ======================== -->
+  <div class="card">
+    <h2>Book a Seat</h2>
+
+    <!-- Alert banners (hidden by default) -->
+    <div id="alert-error"   class="alert alert-error"></div>
+    <div id="alert-success" class="alert alert-success"></div>
+
+    <!-- Train selection -->
+    <div class="form-group">
+      <label for="train-select">Select Train</label>
+      <select id="train-select">
+        <option value="">— Loading trains… —</option>
+      </select>
+    </div>
+
+    <!-- Source station -->
+    <div class="form-group">
+      <label for="source-select">Source Station</label>
+      <select id="source-select" disabled>
+        <option value="">— Select a train first —</option>
+      </select>
+    </div>
+
+    <!-- Destination station -->
+    <div class="form-group">
+      <label for="dest-select">Destination Station</label>
+      <select id="dest-select" disabled>
+        <option value="">— Select a train first —</option>
+      </select>
+    </div>
+
+    <!-- Allocate button -->
+    <button id="allocate-btn" class="btn btn-primary" disabled>Allocate Seat</button>
+
+    <!-- Loading spinner -->
+    <div id="spinner" class="spinner"></div>
+  </div>
+
+  <!-- ======================== RESULT CARD ======================== -->
+  <div id="result-panel" class="card">
+    <h2>Allocation Result</h2>
+
+    <table class="result-table">
+      <tr><th>Train</th>          <td id="res-train"></td></tr>
+      <tr><th>Coach</th>          <td id="res-coach"></td></tr>
+      <tr><th>Berth Number</th>   <td id="res-berth"></td></tr>
+      <tr><th>Berth Type</th>     <td id="res-type"></td></tr>
+      <tr><th>Allocation Type</th><td id="res-alloc"></td></tr>
+      <tr><th>Segment</th>        <td id="res-segment"></td></tr>
+      <tr><th>Journey</th>        <td id="res-journey"></td></tr>
+    </table>
+
+    <!-- QR code -->
+    <div class="qr-wrapper" id="qr-wrapper" style="display:none">
+      <img id="qr-img" src="" alt="Booking QR Code" />
+      <p>Scan QR code for booking details</p>
+    </div>
+  </div>
+
+  <!-- ======================== FOOTER ======================== -->
+  <footer>
+    &copy; 2026 SmartSeat &mdash; B.Tech Project &bull; Dynamic Train Seat Allocation
+  </footer>
+
+  <!-- =====================================================================
+       JAVASCRIPT — vanilla, no frameworks
+       ===================================================================== -->
+  <script>
+    /* -----------------------------------------------------------------
+     * API BASE URL
+     * -----------------------------------------------------------------
+     * Change this value when the backend runs on a different host or port.
+     *   - Local dev  :  ""  (empty string — same origin)
+     *   - Remote     :  "https://your-server.example.com"
+     * ----------------------------------------------------------------- */
+    const API_BASE = "";
+
+    /* ----- DOM references ----- */
+    const trainSelect  = document.getElementById("train-select");
+    const sourceSelect = document.getElementById("source-select");
+    const destSelect   = document.getElementById("dest-select");
+    const allocateBtn  = document.getElementById("allocate-btn");
+    const spinner      = document.getElementById("spinner");
+    const resultPanel  = document.getElementById("result-panel");
+    const alertError   = document.getElementById("alert-error");
+    const alertSuccess = document.getElementById("alert-success");
+
+    /* ----- State ----- */
+    let trainsData = [];   // cached list from GET /trains
+
+    /* =================================================================
+     * HELPERS
+     * ================================================================= */
+
+    /** Show an error alert */
+    function showError(msg) {
+      alertSuccess.style.display = "none";
+      alertError.textContent = msg;
+      alertError.style.display = "block";
+    }
+
+    /** Show a success alert */
+    function showSuccess(msg) {
+      alertError.style.display = "none";
+      alertSuccess.textContent = msg;
+      alertSuccess.style.display = "block";
+    }
+
+    /** Hide all alerts */
+    function hideAlerts() {
+      alertError.style.display  = "none";
+      alertSuccess.style.display = "none";
+    }
+
+    /** Populate a <select> with an array of station names */
+    function populateStationDropdown(selectEl, stations, placeholder) {
+      selectEl.innerHTML = "";
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = placeholder;
+      selectEl.appendChild(opt);
+
+      stations.forEach(function (name) {
+        const o = document.createElement("option");
+        o.value = name;
+        o.textContent = name;
+        selectEl.appendChild(o);
+      });
+      selectEl.disabled = false;
+    }
+
+    /* =================================================================
+     * FETCH TRAINS  (GET /trains)
+     * ================================================================= */
+
+    async function fetchTrains() {
+      try {
+        const res = await fetch(API_BASE + "/trains");
+        if (!res.ok) throw new Error("Failed to load trains (HTTP " + res.status + ")");
+        trainsData = await res.json();
+
+        trainSelect.innerHTML = "";
+        const defaultOpt = document.createElement("option");
+        defaultOpt.value = "";
+        defaultOpt.textContent = "— Choose a train —";
+        trainSelect.appendChild(defaultOpt);
+
+        trainsData.forEach(function (t) {
+          const o = document.createElement("option");
+          o.value = t.train_no;
+          o.textContent = t.train_no + " — " + t.train_name;
+          trainSelect.appendChild(o);
+        });
+      } catch (err) {
+        showError("Unable to fetch train list. Is the backend running?");
+      }
+    }
+
+    /* =================================================================
+     * TRAIN SELECTED — populate source / destination
+     * ================================================================= */
+
+    trainSelect.addEventListener("change", function () {
+      hideAlerts();
+      resultPanel.style.display = "none";
+
+      const trainNo = trainSelect.value;
+      if (!trainNo) {
+        sourceSelect.innerHTML = '<option value="">— Select a train first —</option>';
+        destSelect.innerHTML   = '<option value="">— Select a train first —</option>';
+        sourceSelect.disabled = true;
+        destSelect.disabled   = true;
+        allocateBtn.disabled  = true;
+        return;
+      }
+
+      /* Find the train object */
+      const train = trainsData.find(function (t) { return t.train_no === trainNo; });
+      if (!train) return;
+
+      populateStationDropdown(sourceSelect, train.route, "— Select source —");
+      populateStationDropdown(destSelect,   train.route, "— Select destination —");
+      allocateBtn.disabled = false;
+    });
+
+    /* =================================================================
+     * ALLOCATE SEAT  (POST /allocate)
+     * ================================================================= */
+
+    allocateBtn.addEventListener("click", async function () {
+      hideAlerts();
+      resultPanel.style.display = "none";
+
+      const trainNo = trainSelect.value;
+      const source  = sourceSelect.value;
+      const dest    = destSelect.value;
+
+      /* ---------- Client-side validation ---------- */
+      if (!trainNo) { showError("Please select a train."); return; }
+      if (!source)  { showError("Please select a source station."); return; }
+      if (!dest)    { showError("Please select a destination station."); return; }
+      if (source === dest) {
+        showError("Source and destination cannot be the same.");
+        return;
+      }
+
+      /* Ensure source comes before destination in the route */
+      const train = trainsData.find(function (t) { return t.train_no === trainNo; });
+      if (train) {
+        const srcIdx  = train.route.indexOf(source);
+        const destIdx = train.route.indexOf(dest);
+        if (srcIdx >= destIdx) {
+          showError("Destination must come after source in the route.");
+          return;
+        }
+      }
+
+      /* ---------- API call ---------- */
+      spinner.style.display = "block";
+      allocateBtn.disabled = true;
+
+      try {
+        const res = await fetch(API_BASE + "/allocate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ train_no: trainNo, from: source, to: dest }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          /* API returned an error (e.g. 409 no seats, 400 bad input) */
+          showError(data.detail || "Allocation failed.");
+          return;
+        }
+
+        /* ---------- Display result ---------- */
+        showSuccess("Seat allocated successfully!");
+
+        document.getElementById("res-train").textContent   = data.train_no;
+        document.getElementById("res-coach").textContent   = data.coach;
+        document.getElementById("res-berth").textContent   = data.berth_no;
+        document.getElementById("res-type").textContent    = data.berth_type;
+        document.getElementById("res-alloc").textContent   = data.allocation_type;
+        document.getElementById("res-segment").textContent = data.segment || "—";
+        document.getElementById("res-journey").textContent = data.source + "  →  " + data.destination;
+
+        resultPanel.style.display = "block";
+
+        /* QR code */
+        const qrWrapper = document.getElementById("qr-wrapper");
+        if (data.qr_code) {
+          document.getElementById("qr-img").src = API_BASE + data.qr_code;
+          qrWrapper.style.display = "block";
+        } else {
+          qrWrapper.style.display = "none";
+        }
+      } catch (err) {
+        showError("Network error — could not reach the backend.");
+      } finally {
+        spinner.style.display = "none";
+        allocateBtn.disabled  = false;
+      }
+    });
+
+    /* =================================================================
+     * INITIALISE — load trains on page ready
+     * ================================================================= */
+    fetchTrains();
+  </script>
+
+</body>
+</html>

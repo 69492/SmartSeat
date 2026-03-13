@@ -13,6 +13,8 @@ POST /release               — release / deallocate a seat
 GET  /simulation/{train_no} — current station info
 POST /simulation/advance    — advance train to next station
 POST /simulation/reset      — reset simulation to origin
+GET  /ui                    — frontend single-page application
+GET  /qr/{filename}         — download QR code image
 """
 
 from __future__ import annotations
@@ -23,7 +25,9 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 import config
@@ -70,6 +74,28 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+
+# ---------------------------------------------------------------------------
+# CORS — allow the frontend to call the API from any origin
+# ---------------------------------------------------------------------------
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ---------------------------------------------------------------------------
+# Static files — serve the frontend UI
+# ---------------------------------------------------------------------------
+
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
+if os.path.isdir(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +291,16 @@ def advance_simulation(request: AdvanceRequest) -> dict[str, Any]:
 def reset_simulation(request: AdvanceRequest) -> dict[str, str]:
     """Reset the simulation pointer to the train's origin station."""
     return simulation.reset_simulation(request.train_no)
+
+
+# ------------------------------------------------------------------
+@app.get("/ui", tags=["UI"], include_in_schema=False)
+def serve_ui() -> FileResponse:
+    """Serve the frontend single-page application."""
+    index = os.path.join(STATIC_DIR, "index.html")
+    if not os.path.exists(index):
+        raise HTTPException(status_code=404, detail="Frontend not found.")
+    return FileResponse(index, media_type="text/html")
 
 
 # ------------------------------------------------------------------
