@@ -288,6 +288,7 @@ All settings are loaded from environment variables (see `.env.example`):
 | `API_PORT` | `5000` | Listen port |
 | `API_RELOAD` | `false` | Auto-reload on code changes (dev only) |
 | `LOG_LEVEL` | `info` | Logging verbosity |
+| `CORS_ORIGINS` | `*` | Comma-separated allowed CORS origins |
 | `DATA_DIR` | `./data` | Train data directory |
 | `QR_DIR` | `./qr_codes` | QR code output directory |
 | `DATA_SEED` | `42` | Random seed for data generation |

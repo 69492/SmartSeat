@@ -21,6 +21,13 @@ PORT: int = int(os.getenv("API_PORT", "5000"))
 RELOAD: bool = os.getenv("API_RELOAD", "false").lower() == "true"
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "info").lower()
 
+# Comma-separated list of allowed CORS origins; "*" permits all origins.
+CORS_ORIGINS: list[str] = [
+    o.strip()
+    for o in os.getenv("CORS_ORIGINS", "*").split(",")
+    if o.strip()
+]
+
 # ---------------------------------------------------------------------------
 # Data paths
 # ---------------------------------------------------------------------------
