@@ -91,3 +91,16 @@ def test_simulation_reset():
 def test_qr_not_found():
     response = client.get("/qr/nonexistent.png")
     assert response.status_code == 404
+
+
+def test_ui_endpoint():
+    response = client.get("/ui")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "SmartSeat" in response.text
+
+
+def test_static_index_html():
+    response = client.get("/static/index.html")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]

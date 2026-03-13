@@ -88,12 +88,12 @@
           {
             "berth_no": 12,
             "berth_type": "MB",
-            "status": "FULL_VACANT"
+            "status": "FULL_OCCUPIED"
           },
           {
             "berth_no": 13,
             "berth_type": "UB",
-            "status": "FULL_VACANT"
+            "status": "FULL_OCCUPIED"
           },
           {
             "berth_no": 14,
@@ -167,12 +167,12 @@
           {
             "berth_no": 22,
             "berth_type": "MB",
-            "status": "FULL_VACANT"
+            "status": "FULL_OCCUPIED"
           },
           {
             "berth_no": 23,
             "berth_type": "UB",
-            "status": "FULL_VACANT"
+            "status": "FULL_OCCUPIED"
           },
           {
             "berth_no": 24,
@@ -204,7 +204,7 @@
           {
             "berth_no": 26,
             "berth_type": "LB",
-            "status": "FULL_VACANT"
+            "status": "FULL_OCCUPIED"
           },
           {
             "berth_no": 27,
