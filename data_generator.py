@@ -13,9 +13,12 @@ Saved to data/train_data.json.
 """
 
 import json
+import logging
 import os
 import random
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -175,7 +178,7 @@ def save_train_data(path: str = "data/train_data.json", seed: int | None = 42) -
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2)
-    print(f"[data_generator] Saved {len(data)} trains → {path}")
+    logger.info("Saved %d trains → %s", len(data), path)
     return data
 
 

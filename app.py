@@ -17,6 +17,7 @@ POST /simulation/reset      — reset simulation to origin
 
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
@@ -25,17 +26,20 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+import config
 import data_generator
 import allocation_engine
 import ml_model
 import qr_generator
 import simulation
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Data path
 # ---------------------------------------------------------------------------
 
-DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "train_data.json")
+DATA_PATH = config.DATA_PATH
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +50,10 @@ DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "train_data.json")
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Generate train data on startup if not already present."""
     if not os.path.exists(DATA_PATH):
-        data_generator.save_train_data(DATA_PATH, seed=42)
+        logger.info("Train data not found — generating with seed=%d", config.DATA_SEED)
+        data_generator.save_train_data(DATA_PATH, seed=config.DATA_SEED)
+    else:
+        logger.info("Train data loaded from %s", DATA_PATH)
     yield
 
 
@@ -276,4 +283,12 @@ def get_qr(filename: str) -> FileResponse:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=5000, reload=True)
+
+    logging.basicConfig(level=config.LOG_LEVEL.upper())
+    uvicorn.run(
+        "app:app",
+        host=config.HOST,
+        port=config.PORT,
+        reload=config.RELOAD,
+        log_level=config.LOG_LEVEL,
+    )
