@@ -13,9 +13,9 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #eef2f7;
-      color: #2c3e50;
+      font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f0f4f8;
+      color: #334155;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -25,78 +25,173 @@
     /* ---------- Header ---------- */
     header {
       width: 100%;
-      background: linear-gradient(135deg, #1a237e, #283593);
+      background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
       color: #fff;
       text-align: center;
-      padding: 28px 16px 22px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+      padding: 32px 16px 28px;
+      box-shadow: 0 4px 24px rgba(37,99,235,.3);
+      position: relative;
+      overflow: hidden;
     }
-    header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: .5px; }
-    header p  { margin-top: 6px; font-size: .95rem; opacity: .85; }
+    header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at 30% 50%, rgba(255,255,255,.07) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .header-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      justify-content: center;
+      position: relative;
+    }
+    .header-icon {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: .3px;
+      position: relative;
+    }
+    header p {
+      margin-top: 8px;
+      font-size: .9rem;
+      opacity: .8;
+      font-weight: 400;
+      letter-spacing: .2px;
+      position: relative;
+    }
+
+    /* ---------- Main content area ---------- */
+    main {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      padding: 0 16px;
+    }
 
     /* ---------- Card container ---------- */
     .card {
       background: #fff;
-      width: 94%;
+      width: 100%;
       max-width: 520px;
-      margin: 30px auto;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,.08);
+      margin: 28px auto;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.07);
       padding: 28px 24px;
+      border: 1px solid rgba(0,0,0,.04);
+      animation: cardEnter .4s ease-out;
+    }
+
+    @keyframes cardEnter {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
     .card h2 {
-      font-size: 1.15rem;
-      margin-bottom: 18px;
-      color: #1a237e;
-      border-bottom: 2px solid #e8eaf6;
-      padding-bottom: 8px;
+      font-size: 1.1rem;
+      margin-bottom: 20px;
+      color: #1e3a5f;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .card h2 .h2-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
     }
 
     /* ---------- Form controls ---------- */
-    .form-group { margin-bottom: 16px; }
+    .form-group { margin-bottom: 18px; }
     .form-group label {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 6px;
       font-weight: 600;
-      margin-bottom: 6px;
-      font-size: .9rem;
+      margin-bottom: 7px;
+      font-size: .875rem;
+      color: #475569;
+    }
+    .form-group label .label-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      opacity: .7;
     }
 
     select {
       width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #cfd8dc;
-      border-radius: 6px;
-      font-size: .95rem;
-      background: #fafafa;
+      padding: 11px 36px 11px 14px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: .925rem;
+      background: #f8fafc;
+      color: #334155;
       appearance: none;
       -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: right 12px center;
+      background-position: right 14px center;
       cursor: pointer;
+      transition: border-color .2s, box-shadow .2s, background-color .2s;
     }
-    select:focus { outline: none; border-color: #3f51b5; box-shadow: 0 0 0 3px rgba(63,81,181,.15); }
+    select:hover:not(:disabled) {
+      border-color: #94a3b8;
+      background-color: #fff;
+    }
+    select:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+      background-color: #fff;
+    }
+    select:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+      background-color: #f1f5f9;
+    }
 
     /* ---------- Button ---------- */
     .btn {
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       width: 100%;
-      padding: 12px;
+      padding: 13px 20px;
       border: none;
-      border-radius: 6px;
+      border-radius: 10px;
       font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
-      transition: background .2s, transform .1s;
+      transition: background .2s, transform .1s, box-shadow .2s;
+      margin-top: 4px;
     }
     .btn-primary {
-      background: #1a237e;
+      background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
       color: #fff;
+      box-shadow: 0 2px 8px rgba(37,99,235,.25);
     }
-    .btn-primary:hover  { background: #283593; }
-    .btn-primary:active { transform: scale(.98); }
-    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);
+      box-shadow: 0 4px 16px rgba(37,99,235,.35);
+    }
+    .btn-primary:active:not(:disabled) { transform: scale(.98); box-shadow: 0 1px 4px rgba(37,99,235,.2); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn .btn-icon { width: 18px; height: 18px; flex-shrink: 0; }
 
     /* ---------- Result panel ---------- */
     #result-panel {
@@ -108,55 +203,90 @@
       border-collapse: collapse;
       margin-bottom: 16px;
     }
+    .result-table tr:last-child th,
+    .result-table tr:last-child td { border-bottom: none; }
     .result-table th,
     .result-table td {
       text-align: left;
-      padding: 8px 10px;
-      font-size: .9rem;
-      border-bottom: 1px solid #eceff1;
+      padding: 10px 12px;
+      font-size: .875rem;
+      border-bottom: 1px solid #f1f5f9;
     }
-    .result-table th { width: 45%; color: #546e7a; font-weight: 600; }
-    .result-table td { color: #263238; }
+    .result-table th { width: 44%; color: #64748b; font-weight: 600; }
+    .result-table td { color: #1e293b; font-weight: 500; }
+    .result-table tr:nth-child(even) { background: #f8fafc; }
+
+    /* Result badge */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: .78rem;
+      font-weight: 600;
+      letter-spacing: .3px;
+    }
+    .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+    .badge-green  { background: #dcfce7; color: #15803d; }
+    .badge-amber  { background: #fef3c7; color: #92400e; }
 
     /* ---------- QR code image ---------- */
     .qr-wrapper {
       text-align: center;
-      margin-top: 12px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #f1f5f9;
     }
     .qr-wrapper img {
-      max-width: 180px;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
+      max-width: 160px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 8px;
+      background: #fff;
     }
     .qr-wrapper p {
-      margin-top: 6px;
-      font-size: .8rem;
-      color: #78909c;
+      margin-top: 8px;
+      font-size: .78rem;
+      color: #94a3b8;
+      font-weight: 500;
     }
 
     /* ---------- Alerts ---------- */
     .alert {
-      padding: 12px 14px;
-      border-radius: 6px;
-      font-size: .9rem;
-      margin-bottom: 16px;
       display: none;          /* toggled by JS */
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: .875rem;
+      margin-bottom: 18px;
+      font-weight: 500;
+      line-height: 1.45;
     }
-    .alert-error   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
-    .alert-success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .alert.visible { display: flex; }
+    .alert .alert-icon { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+    .alert-error {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+    .alert-success {
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
 
     /* ---------- Loading spinner ---------- */
     .spinner {
       display: none;
       text-align: center;
-      padding: 14px;
+      padding: 16px;
     }
     .spinner::after {
       content: '';
       display: inline-block;
-      width: 28px; height: 28px;
-      border: 3px solid #c5cae9;
-      border-top-color: #1a237e;
+      width: 30px; height: 30px;
+      border: 3px solid #dbeafe;
+      border-top-color: #2563eb;
       border-radius: 50%;
       animation: spin .7s linear infinite;
     }
@@ -165,16 +295,23 @@
     /* ---------- Footer ---------- */
     footer {
       margin-top: auto;
-      padding: 18px 16px;
+      width: 100%;
+      padding: 20px 16px;
       text-align: center;
       font-size: .8rem;
-      color: #90a4ae;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+      background: #fff;
     }
 
     /* ---------- Responsive tweaks ---------- */
     @media (max-width: 480px) {
-      header h1 { font-size: 1.25rem; }
-      .card { padding: 20px 16px; }
+      header { padding: 24px 12px 20px; }
+      header h1 { font-size: 1.2rem; }
+      header p { font-size: .82rem; }
+      .header-icon { width: 28px; height: 28px; }
+      .card { padding: 20px 16px; margin: 20px auto; border-radius: 12px; }
+      .btn { padding: 12px 16px; }
     }
   </style>
 </head>
@@ -183,73 +320,128 @@
 
   <!-- ======================== HEADER ======================== -->
   <header>
-    <h1>Dynamic Train Seat Allocation System</h1>
-    <p>Smart Seat Allocation System — Segment-Wise Berth Availability</p>
+    <div class="header-brand">
+      <!-- Train icon -->
+      <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="3" width="16" height="14" rx="2"/>
+        <path d="M4 11h16"/>
+        <path d="M12 3v8"/>
+        <circle cx="8" cy="21" r="1"/><circle cx="16" cy="21" r="1"/>
+        <path d="M8 17v3h8v-3"/>
+      </svg>
+      <h1>SmartSeat</h1>
+    </div>
+    <p>Dynamic Train Seat Allocation — Segment-Wise Berth Availability</p>
   </header>
 
-  <!-- ======================== MAIN CARD ======================== -->
-  <div class="card">
-    <h2>Book a Seat</h2>
+  <main>
+    <!-- ======================== MAIN CARD ======================== -->
+    <div class="card">
+      <h2>
+        <svg class="h2-icon" viewBox="0 0 24 24" fill="none" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 5v2"/><path d="M15 11v2"/>
+          <path d="M15 17v2"/>
+          <path d="M5 5a2 2 0 00-2 2v3a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2H5z"/>
+          <path d="M5 12a2 2 0 00-2 2v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 00-2-2H5z"/>
+        </svg>
+        Book a Seat
+      </h2>
 
-    <!-- Alert banners (hidden by default) -->
-    <div id="alert-error"   class="alert alert-error"></div>
-    <div id="alert-success" class="alert alert-success"></div>
+      <!-- Alert banners (hidden by default) -->
+      <div id="alert-error" class="alert alert-error">
+        <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        <span id="alert-error-text"></span>
+      </div>
+      <div id="alert-success" class="alert alert-success">
+        <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <span id="alert-success-text"></span>
+      </div>
 
-    <!-- Train selection -->
-    <div class="form-group">
-      <label for="train-select">Select Train</label>
-      <select id="train-select">
-        <option value="">— Loading trains… —</option>
-      </select>
+      <!-- Train selection -->
+      <div class="form-group">
+        <label for="train-select">
+          <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="21" r="1"/><circle cx="16" cy="21" r="1"/><path d="M8 17v3h8v-3"/>
+          </svg>
+          Select Train
+        </label>
+        <select id="train-select">
+          <option value="">— Loading trains… —</option>
+        </select>
+      </div>
+
+      <!-- Source station -->
+      <div class="form-group">
+        <label for="source-select">
+          <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 00-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 00-8-8z"/>
+          </svg>
+          Source Station
+        </label>
+        <select id="source-select" disabled>
+          <option value="">— Select a train first —</option>
+        </select>
+      </div>
+
+      <!-- Destination station -->
+      <div class="form-group">
+        <label for="dest-select">
+          <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+          </svg>
+          Destination Station
+        </label>
+        <select id="dest-select" disabled>
+          <option value="">— Select a train first —</option>
+        </select>
+      </div>
+
+      <!-- Allocate button -->
+      <button id="allocate-btn" class="btn btn-primary" disabled>
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        Allocate Seat
+      </button>
+
+      <!-- Loading spinner -->
+      <div id="spinner" class="spinner"></div>
     </div>
 
-    <!-- Source station -->
-    <div class="form-group">
-      <label for="source-select">Source Station</label>
-      <select id="source-select" disabled>
-        <option value="">— Select a train first —</option>
-      </select>
+    <!-- ======================== RESULT CARD ======================== -->
+    <div id="result-panel" class="card">
+      <h2>
+        <svg class="h2-icon" viewBox="0 0 24 24" fill="none" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+        </svg>
+        Allocation Result
+      </h2>
+
+      <table class="result-table">
+        <tr><th>Train</th>          <td id="res-train"></td></tr>
+        <tr><th>Coach</th>          <td id="res-coach"></td></tr>
+        <tr><th>Berth Number</th>   <td id="res-berth"></td></tr>
+        <tr><th>Berth Type</th>     <td id="res-type"></td></tr>
+        <tr><th>Allocation Type</th><td id="res-alloc"></td></tr>
+        <tr><th>Segment</th>        <td id="res-segment"></td></tr>
+        <tr><th>Journey</th>        <td id="res-journey"></td></tr>
+      </table>
+
+      <!-- QR code -->
+      <div class="qr-wrapper" id="qr-wrapper" style="display:none">
+        <img id="qr-img" src="" alt="Booking QR Code" />
+        <p>Scan QR code for booking details</p>
+      </div>
     </div>
-
-    <!-- Destination station -->
-    <div class="form-group">
-      <label for="dest-select">Destination Station</label>
-      <select id="dest-select" disabled>
-        <option value="">— Select a train first —</option>
-      </select>
-    </div>
-
-    <!-- Allocate button -->
-    <button id="allocate-btn" class="btn btn-primary" disabled>Allocate Seat</button>
-
-    <!-- Loading spinner -->
-    <div id="spinner" class="spinner"></div>
-  </div>
-
-  <!-- ======================== RESULT CARD ======================== -->
-  <div id="result-panel" class="card">
-    <h2>Allocation Result</h2>
-
-    <table class="result-table">
-      <tr><th>Train</th>          <td id="res-train"></td></tr>
-      <tr><th>Coach</th>          <td id="res-coach"></td></tr>
-      <tr><th>Berth Number</th>   <td id="res-berth"></td></tr>
-      <tr><th>Berth Type</th>     <td id="res-type"></td></tr>
-      <tr><th>Allocation Type</th><td id="res-alloc"></td></tr>
-      <tr><th>Segment</th>        <td id="res-segment"></td></tr>
-      <tr><th>Journey</th>        <td id="res-journey"></td></tr>
-    </table>
-
-    <!-- QR code -->
-    <div class="qr-wrapper" id="qr-wrapper" style="display:none">
-      <img id="qr-img" src="" alt="Booking QR Code" />
-      <p>Scan QR code for booking details</p>
-    </div>
-  </div>
+  </main>
 
   <!-- ======================== FOOTER ======================== -->
   <footer>
-    &copy; 2026 SmartSeat &mdash; B.Tech Project &bull; Dynamic Train Seat Allocation
+    &copy; 2026 SmartSeat &mdash; Dynamic Train Seat Allocation System
   </footer>
 
   <!-- =====================================================================
@@ -284,22 +476,22 @@
 
     /** Show an error alert */
     function showError(msg) {
-      alertSuccess.style.display = "none";
-      alertError.textContent = msg;
-      alertError.style.display = "block";
+      alertSuccess.classList.remove("visible");
+      document.getElementById("alert-error-text").textContent = msg;
+      alertError.classList.add("visible");
     }
 
     /** Show a success alert */
     function showSuccess(msg) {
-      alertError.style.display = "none";
-      alertSuccess.textContent = msg;
-      alertSuccess.style.display = "block";
+      alertError.classList.remove("visible");
+      document.getElementById("alert-success-text").textContent = msg;
+      alertSuccess.classList.add("visible");
     }
 
     /** Hide all alerts */
     function hideAlerts() {
-      alertError.style.display  = "none";
-      alertSuccess.style.display = "none";
+      alertError.classList.remove("visible");
+      alertSuccess.classList.remove("visible");
     }
 
     /** Populate a <select> with an array of station names */
@@ -430,8 +622,8 @@
         document.getElementById("res-train").textContent   = data.train_no;
         document.getElementById("res-coach").textContent   = data.coach;
         document.getElementById("res-berth").textContent   = data.berth_no;
-        document.getElementById("res-type").textContent    = data.berth_type;
-        document.getElementById("res-alloc").textContent   = data.allocation_type;
+        document.getElementById("res-type").innerHTML      = '<span class="badge badge-blue">' + data.berth_type + '</span>';
+        document.getElementById("res-alloc").innerHTML     = '<span class="badge badge-green">' + data.allocation_type + '</span>';
         document.getElementById("res-segment").textContent = data.segment || "—";
         document.getElementById("res-journey").textContent = data.source + "  →  " + data.destination;
 
