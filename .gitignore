@@ -31,3 +31,4 @@ tests/_test_data/
 .pytest_cache/
 htmlcov/
 .coverage
+data/train_data.json
