@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+*.so
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Generated data files
+data/simulation_state.json
+
+# Generated QR images (not committed — created at runtime)
+qr_codes/*.png
+
+# IDE / OS
+.idea/
+.vscode/
+*.DS_Store
+.env
