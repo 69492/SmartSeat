@@ -28,6 +28,9 @@ CORS_ORIGINS: list[str] = [
     if o.strip()
 ]
 
+# Enable CORS credentials (cookies, authorization headers, etc.)
+CORS_ALLOW_CREDENTIALS: bool = os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
+
 # ---------------------------------------------------------------------------
 # Data paths
 # ---------------------------------------------------------------------------
