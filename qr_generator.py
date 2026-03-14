@@ -60,8 +60,11 @@ def generate_qr(booking: dict[str, Any], output_dir: str = QR_DIR) -> str:
     Parameters
     ----------
     booking : dict
-        Must contain at minimum:
-            ticket_id, name, train_no, coach, berth_no, source, destination
+        Booking/ticket data. The following keys are used (all optional,
+        absent keys produce empty strings):
+            ticket_id, name, age, train_no, coach, berth_no, berth_type,
+            source, destination, allocation_type, price, booking_time,
+            validity, status
     output_dir : str
         Directory in which the PNG image is saved.
 

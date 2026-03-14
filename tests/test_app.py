@@ -223,6 +223,7 @@ def test_book_ticket_with_preallocated_seat():
     assert body["seat_details"]["berth_no"] == 1
     assert body["seat_details"]["berth_type"] == "LB"
     assert body["status"] == "CONFIRMED"
+    assert "qr_url" in body
 
 
 def test_book_ticket_invalid_train():
