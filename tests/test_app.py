@@ -146,3 +146,67 @@ def test_cors_headers_on_post_request():
     )
     assert response.status_code == 200
     assert "access-control-allow-origin" in response.headers
+
+
+# ---------------------------------------------------------------------------
+# Booking tests
+# ---------------------------------------------------------------------------
+
+def test_book_ticket():
+    """Test the full booking flow via POST /book_ticket."""
+    response = client.post(
+        "/book_ticket",
+        json={
+            "train_no": "12301",
+            "from": "Howrah",
+            "to": "New Delhi",
+            "name": "Test User",
+            "age": 25,
+            "email": "test@example.com",
+        },
+    )
+    # Accept 200 (booked) or 409 (no seats) — both are valid
+    assert response.status_code in (200, 409)
+    if response.status_code == 200:
+        body = response.json()
+        assert "ticket_id" in body
+        assert body["ticket_id"].startswith("SM-")
+        assert "seat_details" in body
+        assert body["seat_details"]["train_no"] == "12301"
+        assert "price" in body
+        assert "booking_time" in body
+        assert "validity" in body
+        assert "qr_url" in body
+        assert "email_status" in body
+        assert body["name"] == "Test User"
+        assert body["age"] == 25
+        assert body["email"] == "test@example.com"
+
+
+def test_book_ticket_invalid_train():
+    """Test booking with an invalid train number."""
+    response = client.post(
+        "/book_ticket",
+        json={
+            "train_no": "00000",
+            "from": "A",
+            "to": "B",
+            "name": "Test",
+            "age": 30,
+            "email": "test@example.com",
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_book_ticket_missing_fields():
+    """Test booking with missing required fields."""
+    response = client.post(
+        "/book_ticket",
+        json={
+            "train_no": "12301",
+            "from": "Howrah",
+            "to": "New Delhi",
+        },
+    )
+    assert response.status_code == 422

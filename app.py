@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any, AsyncGenerator
 
 from fastapi import FastAPI, HTTPException
@@ -33,6 +35,7 @@ from pydantic import BaseModel, Field
 import config
 import data_generator
 import allocation_engine
+import email_sender
 import ml_model
 import qr_generator
 import simulation
@@ -134,6 +137,19 @@ class AdvanceRequest(BaseModel):
     train_no: str
 
 
+class BookTicketRequest(BaseModel):
+    """Request body for POST /book_ticket."""
+
+    train_no: str
+    source: str = Field(..., alias="from", serialization_alias="from")
+    destination: str = Field(..., alias="to", serialization_alias="to")
+    name: str
+    age: int
+    email: str
+
+    model_config = {"populate_by_name": True}
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -232,6 +248,106 @@ def allocate(request: AllocateRequest) -> dict[str, Any]:
         "segment":         allocated.get("segment"),
         "candidates_found": len(candidates),
         "qr_code":         f"/qr/{qr_filename}" if qr_filename else None,
+    }
+
+
+# ------------------------------------------------------------------
+@app.post("/book_ticket", tags=["Booking"])
+def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
+    """
+    Full booking flow: allocate seat, generate ticket, create QR, send email.
+
+    Request body:
+    ```json
+    {
+      "train_no": "12301",
+      "from": "Howrah",
+      "to": "New Delhi",
+      "name": "John Doe",
+      "age": 30,
+      "email": "john@example.com"
+    }
+    ```
+    """
+    train_no    = request.train_no
+    source      = request.source
+    destination = request.destination
+
+    # --- Allocate seat (CSP + ML) ---
+    try:
+        candidates = allocation_engine.find_valid_berths(
+            train_no, source, destination, DATA_PATH
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    if not candidates:
+        raise HTTPException(
+            status_code=409,
+            detail="No valid berths available for the requested journey.",
+        )
+
+    best = ml_model.get_best_berth(candidates)
+
+    try:
+        allocated = allocation_engine.allocate_seat(
+            train_no, source, destination, DATA_PATH, ranked_berth=best
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    # --- Build ticket ---
+    ticket_id = f"SM-{uuid.uuid4().hex[:8].upper()}"
+    booking_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    price = config.TICKET_PRICE
+
+    ticket = {
+        "ticket_id":       ticket_id,
+        "name":            request.name,
+        "age":             request.age,
+        "email":           request.email,
+        "train_no":        allocated["train_no"],
+        "coach":           allocated["coach"],
+        "berth_no":        allocated["berth_no"],
+        "berth_type":      allocated["berth_type"],
+        "source":          source,
+        "destination":     destination,
+        "allocation_type": allocated["allocation_type"],
+        "price":           price,
+        "booking_time":    booking_time,
+        "validity":        f"Valid until arrival at {destination}",
+    }
+
+    # --- QR code ---
+    try:
+        qr_path = qr_generator.generate_qr(ticket)
+        qr_filename = os.path.basename(qr_path)
+    except Exception:
+        qr_path = None
+        qr_filename = None
+
+    # --- Email ---
+    email_status = email_sender.send_ticket_email(ticket, qr_path=qr_path)
+
+    return {
+        "ticket_id":    ticket_id,
+        "seat_details": {
+            "train_no":        allocated["train_no"],
+            "coach":           allocated["coach"],
+            "berth_no":        allocated["berth_no"],
+            "berth_type":      allocated["berth_type"],
+            "allocation_type": allocated["allocation_type"],
+        },
+        "name":         request.name,
+        "age":          request.age,
+        "email":        request.email,
+        "source":       source,
+        "destination":  destination,
+        "price":        price,
+        "booking_time": booking_time,
+        "validity":     f"Valid until arrival at {destination}",
+        "qr_url":       f"/qr/{qr_filename}" if qr_filename else None,
+        "email_status": email_status,
     }
 
 

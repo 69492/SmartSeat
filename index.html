@@ -250,6 +250,84 @@
       font-weight: 500;
     }
 
+    /* ---------- Text input ---------- */
+    input[type="text"],
+    input[type="number"],
+    input[type="email"] {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: .925rem;
+      background: #f8fafc;
+      color: #334155;
+      transition: border-color .2s, box-shadow .2s, background-color .2s;
+    }
+    input[type="text"]:hover,
+    input[type="number"]:hover,
+    input[type="email"]:hover {
+      border-color: #94a3b8;
+      background-color: #fff;
+    }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="email"]:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+      background-color: #fff;
+    }
+
+    /* ---------- Hidden panels ---------- */
+    #passenger-panel,
+    #confirmation-panel {
+      display: none;
+    }
+
+    /* ---------- Secondary button ---------- */
+    .btn-success {
+      background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(34,197,94,.25);
+    }
+    .btn-success:hover:not(:disabled) {
+      background: linear-gradient(135deg, #15803d 0%, #4ade80 100%);
+      box-shadow: 0 4px 16px rgba(34,197,94,.35);
+    }
+    .btn-success:active:not(:disabled) { transform: scale(.98); }
+
+    .btn-amber {
+      background: linear-gradient(135deg, #92400e 0%, #f59e0b 100%);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(245,158,11,.25);
+    }
+    .btn-amber:hover:not(:disabled) {
+      background: linear-gradient(135deg, #92400e 0%, #fbbf24 100%);
+      box-shadow: 0 4px 16px rgba(245,158,11,.35);
+    }
+    .btn-amber:active:not(:disabled) { transform: scale(.98); }
+
+    /* ---------- Confirmation success header ---------- */
+    .confirm-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .confirm-header .checkmark {
+      width: 48px;
+      height: 48px;
+      color: #22c55e;
+      margin-bottom: 8px;
+    }
+    .confirm-header h3 {
+      color: #15803d;
+      font-size: 1.15rem;
+    }
+    .confirm-header p {
+      color: #64748b;
+      font-size: .85rem;
+      margin-top: 4px;
+    }
+
     /* ---------- Alerts ---------- */
     .alert {
       display: none;          /* toggled by JS */
@@ -436,6 +514,110 @@
         <img id="qr-img" src="" alt="Booking QR Code" />
         <p>Scan QR code for booking details</p>
       </div>
+
+      <!-- Proceed to Payment button -->
+      <button id="proceed-btn" class="btn btn-amber" style="margin-top:16px">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+        </svg>
+        Proceed to Payment
+      </button>
+    </div>
+
+    <!-- ======================== PASSENGER FORM ======================== -->
+    <div id="passenger-panel" class="card">
+      <h2>
+        <svg class="h2-icon" viewBox="0 0 24 24" fill="none" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+        Passenger Details
+      </h2>
+
+      <div id="alert-passenger-error" class="alert alert-error">
+        <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        <span id="alert-passenger-error-text"></span>
+      </div>
+
+      <div class="form-group">
+        <label for="pax-name">
+          <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+          Full Name
+        </label>
+        <input type="text" id="pax-name" placeholder="Enter passenger name" />
+      </div>
+
+      <div class="form-group">
+        <label for="pax-age">
+          <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Age
+        </label>
+        <input type="number" id="pax-age" placeholder="Enter age" min="1" max="120" />
+      </div>
+
+      <div class="form-group">
+        <label for="pax-email">
+          <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+          </svg>
+          Email Address
+        </label>
+        <input type="email" id="pax-email" placeholder="Enter email address" />
+      </div>
+
+      <button id="pay-btn" class="btn btn-success">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        Pay &amp; Confirm Booking
+      </button>
+
+      <div id="pay-spinner" class="spinner"></div>
+    </div>
+
+    <!-- ======================== CONFIRMATION CARD ======================== -->
+    <div id="confirmation-panel" class="card">
+      <div class="confirm-header">
+        <svg class="checkmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <h3>Booking Successful!</h3>
+        <p>Your ticket has been confirmed</p>
+      </div>
+
+      <table class="result-table">
+        <tr><th>Ticket ID</th>      <td id="conf-ticket-id"></td></tr>
+        <tr><th>Passenger</th>      <td id="conf-name"></td></tr>
+        <tr><th>Age</th>            <td id="conf-age"></td></tr>
+        <tr><th>Email</th>          <td id="conf-email"></td></tr>
+        <tr><th>Train</th>          <td id="conf-train"></td></tr>
+        <tr><th>Coach</th>          <td id="conf-coach"></td></tr>
+        <tr><th>Berth No.</th>      <td id="conf-berth"></td></tr>
+        <tr><th>Berth Type</th>     <td id="conf-type"></td></tr>
+        <tr><th>Allocation</th>     <td id="conf-alloc"></td></tr>
+        <tr><th>Journey</th>        <td id="conf-journey"></td></tr>
+        <tr><th>Price</th>          <td id="conf-price"></td></tr>
+        <tr><th>Booking Time</th>   <td id="conf-time"></td></tr>
+        <tr><th>Validity</th>       <td id="conf-validity"></td></tr>
+        <tr><th>Email Status</th>   <td id="conf-email-status"></td></tr>
+      </table>
+
+      <div class="qr-wrapper" id="conf-qr-wrapper" style="display:none">
+        <img id="conf-qr-img" src="" alt="Ticket QR Code" />
+        <p>Scan QR code for ticket details</p>
+      </div>
+
+      <button id="new-booking-btn" class="btn btn-primary" style="margin-top:16px">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New Booking
+      </button>
     </div>
   </main>
 
@@ -467,8 +649,17 @@
     const alertError   = document.getElementById("alert-error");
     const alertSuccess = document.getElementById("alert-success");
 
+    /* Booking flow panels */
+    const proceedBtn        = document.getElementById("proceed-btn");
+    const passengerPanel    = document.getElementById("passenger-panel");
+    const payBtn            = document.getElementById("pay-btn");
+    const paySpinner        = document.getElementById("pay-spinner");
+    const confirmationPanel = document.getElementById("confirmation-panel");
+    const newBookingBtn     = document.getElementById("new-booking-btn");
+
     /* ----- State ----- */
     let trainsData = [];   // cached list from GET /trains
+    let lastAllocation = null;  // last allocation result for booking
 
     /* =================================================================
      * HELPERS
@@ -545,6 +736,9 @@
     trainSelect.addEventListener("change", function () {
       hideAlerts();
       resultPanel.style.display = "none";
+      passengerPanel.style.display = "none";
+      confirmationPanel.style.display = "none";
+      lastAllocation = null;
 
       const trainNo = trainSelect.value;
       if (!trainNo) {
@@ -572,6 +766,9 @@
     allocateBtn.addEventListener("click", async function () {
       hideAlerts();
       resultPanel.style.display = "none";
+      passengerPanel.style.display = "none";
+      confirmationPanel.style.display = "none";
+      lastAllocation = null;
 
       const trainNo = trainSelect.value;
       const source  = sourceSelect.value;
@@ -629,6 +826,9 @@
 
         resultPanel.style.display = "block";
 
+        /* Store allocation for booking flow */
+        lastAllocation = data;
+
         /* QR code */
         const qrWrapper = document.getElementById("qr-wrapper");
         if (data.qr_code) {
@@ -643,6 +843,130 @@
         spinner.style.display = "none";
         allocateBtn.disabled  = false;
       }
+    });
+
+    /* =================================================================
+     * PROCEED TO PAYMENT — show passenger form
+     * ================================================================= */
+
+    proceedBtn.addEventListener("click", function () {
+      passengerPanel.style.display = "block";
+      passengerPanel.scrollIntoView({ behavior: "smooth" });
+    });
+
+    /* =================================================================
+     * PAY & CONFIRM  (POST /book_ticket)
+     * ================================================================= */
+
+    payBtn.addEventListener("click", async function () {
+      /* Hide previous passenger errors */
+      document.getElementById("alert-passenger-error").classList.remove("visible");
+
+      const paxName  = document.getElementById("pax-name").value.trim();
+      const paxAge   = document.getElementById("pax-age").value.trim();
+      const paxEmail = document.getElementById("pax-email").value.trim();
+
+      /* Validate */
+      if (!paxName) {
+        document.getElementById("alert-passenger-error-text").textContent = "Please enter passenger name.";
+        document.getElementById("alert-passenger-error").classList.add("visible");
+        return;
+      }
+      if (!paxAge || isNaN(paxAge) || parseInt(paxAge) < 1 || parseInt(paxAge) > 120) {
+        document.getElementById("alert-passenger-error-text").textContent = "Please enter a valid age (1–120).";
+        document.getElementById("alert-passenger-error").classList.add("visible");
+        return;
+      }
+      if (!paxEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(paxEmail)) {
+        document.getElementById("alert-passenger-error-text").textContent = "Please enter a valid email address.";
+        document.getElementById("alert-passenger-error").classList.add("visible");
+        return;
+      }
+
+      paySpinner.style.display = "block";
+      payBtn.disabled = true;
+
+      try {
+        const res = await fetch(API_BASE + "/book_ticket", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            train_no: trainSelect.value,
+            from:     sourceSelect.value,
+            to:       destSelect.value,
+            name:     paxName,
+            age:      parseInt(paxAge),
+            email:    paxEmail
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          document.getElementById("alert-passenger-error-text").textContent = data.detail || "Booking failed.";
+          document.getElementById("alert-passenger-error").classList.add("visible");
+          return;
+        }
+
+        /* Hide other panels, show confirmation */
+        resultPanel.style.display    = "none";
+        passengerPanel.style.display = "none";
+        hideAlerts();
+
+        document.getElementById("conf-ticket-id").textContent = data.ticket_id;
+        document.getElementById("conf-name").textContent      = data.name;
+        document.getElementById("conf-age").textContent       = data.age;
+        document.getElementById("conf-email").textContent     = data.email;
+        document.getElementById("conf-train").textContent     = data.seat_details.train_no;
+        document.getElementById("conf-coach").textContent     = data.seat_details.coach;
+        document.getElementById("conf-berth").textContent     = data.seat_details.berth_no;
+        document.getElementById("conf-type").innerHTML        = '<span class="badge badge-blue">' + data.seat_details.berth_type + '</span>';
+        document.getElementById("conf-alloc").innerHTML       = '<span class="badge badge-green">' + data.seat_details.allocation_type + '</span>';
+        document.getElementById("conf-journey").textContent   = data.source + "  →  " + data.destination;
+        document.getElementById("conf-price").textContent     = "₹" + data.price;
+        document.getElementById("conf-time").textContent      = data.booking_time;
+        document.getElementById("conf-validity").textContent  = data.validity;
+
+        const emailBadge = data.email_status === "sent"
+          ? '<span class="badge badge-green">Sent</span>'
+          : '<span class="badge badge-amber">' + (data.email_status || "N/A") + '</span>';
+        document.getElementById("conf-email-status").innerHTML = emailBadge;
+
+        const confQr = document.getElementById("conf-qr-wrapper");
+        if (data.qr_url) {
+          document.getElementById("conf-qr-img").src = API_BASE + data.qr_url;
+          confQr.style.display = "block";
+        } else {
+          confQr.style.display = "none";
+        }
+
+        confirmationPanel.style.display = "block";
+        confirmationPanel.scrollIntoView({ behavior: "smooth" });
+      } catch (err) {
+        document.getElementById("alert-passenger-error-text").textContent = "Network error — could not reach the backend.";
+        document.getElementById("alert-passenger-error").classList.add("visible");
+      } finally {
+        paySpinner.style.display = "none";
+        payBtn.disabled = false;
+      }
+    });
+
+    /* =================================================================
+     * NEW BOOKING — reset everything
+     * ================================================================= */
+
+    newBookingBtn.addEventListener("click", function () {
+      confirmationPanel.style.display = "none";
+      resultPanel.style.display       = "none";
+      passengerPanel.style.display    = "none";
+      hideAlerts();
+      lastAllocation = null;
+      document.getElementById("pax-name").value  = "";
+      document.getElementById("pax-age").value   = "";
+      document.getElementById("pax-email").value = "";
+      trainSelect.value = "";
+      trainSelect.dispatchEvent(new Event("change"));
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
     /* =================================================================
