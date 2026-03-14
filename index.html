@@ -969,6 +969,9 @@
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
+        })
+        .catch(function () {
+          alert("Unable to download QR code. Please try again.");
         });
     });
 
