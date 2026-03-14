@@ -56,6 +56,7 @@ def test_allocate():
         body = response.json()
         assert body["status"] == "ALLOCATED"
         assert body["train_no"] == "12301"
+        assert "qr_code" not in body
 
 
 def test_allocate_invalid_train():
@@ -162,7 +163,6 @@ def test_book_ticket():
             "to": "New Delhi",
             "name": "Test User",
             "age": 25,
-            "email": "test@example.com",
         },
     )
     # Accept 200 (booked) or 409 (no seats) — both are valid
@@ -177,10 +177,53 @@ def test_book_ticket():
         assert "booking_time" in body
         assert "validity" in body
         assert "qr_url" in body
-        assert "email_status" in body
+        assert body["status"] == "CONFIRMED"
         assert body["name"] == "Test User"
         assert body["age"] == 25
+
+
+def test_book_ticket_with_email():
+    """Test booking with optional email still works."""
+    response = client.post(
+        "/book_ticket",
+        json={
+            "train_no": "12301",
+            "from": "Howrah",
+            "to": "New Delhi",
+            "name": "Test User",
+            "age": 25,
+            "email": "test@example.com",
+        },
+    )
+    assert response.status_code in (200, 409)
+    if response.status_code == 200:
+        body = response.json()
         assert body["email"] == "test@example.com"
+
+
+def test_book_ticket_with_preallocated_seat():
+    """Test booking with pre-allocated seat details skips re-allocation."""
+    response = client.post(
+        "/book_ticket",
+        json={
+            "train_no": "12301",
+            "from": "Howrah",
+            "to": "New Delhi",
+            "name": "Prealloc User",
+            "age": 40,
+            "coach": "S1",
+            "berth_no": 1,
+            "berth_type": "LB",
+            "allocation_type": "FULL_VACANT",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["seat_details"]["coach"] == "S1"
+    assert body["seat_details"]["berth_no"] == 1
+    assert body["seat_details"]["berth_type"] == "LB"
+    assert body["status"] == "CONFIRMED"
+    assert "qr_url" in body
 
 
 def test_book_ticket_invalid_train():
@@ -193,7 +236,6 @@ def test_book_ticket_invalid_train():
             "to": "B",
             "name": "Test",
             "age": 30,
-            "email": "test@example.com",
         },
     )
     assert response.status_code == 400

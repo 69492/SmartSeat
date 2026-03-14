@@ -509,12 +509,6 @@
         <tr><th>Journey</th>        <td id="res-journey"></td></tr>
       </table>
 
-      <!-- QR code -->
-      <div class="qr-wrapper" id="qr-wrapper" style="display:none">
-        <img id="qr-img" src="" alt="Booking QR Code" />
-        <p>Scan QR code for booking details</p>
-      </div>
-
       <!-- Proceed to Payment button -->
       <button id="proceed-btn" class="btn btn-amber" style="margin-top:16px">
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -560,16 +554,6 @@
         <input type="number" id="pax-age" placeholder="Enter age" min="1" max="120" />
       </div>
 
-      <div class="form-group">
-        <label for="pax-email">
-          <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
-          </svg>
-          Email Address
-        </label>
-        <input type="email" id="pax-email" placeholder="Enter email address" />
-      </div>
-
       <button id="pay-btn" class="btn btn-success">
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
@@ -592,9 +576,9 @@
 
       <table class="result-table">
         <tr><th>Ticket ID</th>      <td id="conf-ticket-id"></td></tr>
+        <tr><th>Status</th>         <td id="conf-status"></td></tr>
         <tr><th>Passenger</th>      <td id="conf-name"></td></tr>
         <tr><th>Age</th>            <td id="conf-age"></td></tr>
-        <tr><th>Email</th>          <td id="conf-email"></td></tr>
         <tr><th>Train</th>          <td id="conf-train"></td></tr>
         <tr><th>Coach</th>          <td id="conf-coach"></td></tr>
         <tr><th>Berth No.</th>      <td id="conf-berth"></td></tr>
@@ -604,12 +588,17 @@
         <tr><th>Price</th>          <td id="conf-price"></td></tr>
         <tr><th>Booking Time</th>   <td id="conf-time"></td></tr>
         <tr><th>Validity</th>       <td id="conf-validity"></td></tr>
-        <tr><th>Email Status</th>   <td id="conf-email-status"></td></tr>
       </table>
 
       <div class="qr-wrapper" id="conf-qr-wrapper" style="display:none">
-        <img id="conf-qr-img" src="" alt="Ticket QR Code" />
+        <img id="conf-qr-img" src="" alt="Ticket QR Code" crossorigin="anonymous" />
         <p>Scan QR code for ticket details</p>
+        <button id="download-qr-btn" class="btn btn-success" style="margin-top:12px;max-width:280px;margin-left:auto;margin-right:auto">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download QR Code
+        </button>
       </div>
 
       <button id="new-booking-btn" class="btn btn-primary" style="margin-top:16px">
@@ -829,14 +818,6 @@
         /* Store allocation for booking flow */
         lastAllocation = data;
 
-        /* QR code */
-        const qrWrapper = document.getElementById("qr-wrapper");
-        if (data.qr_code) {
-          document.getElementById("qr-img").src = API_BASE + data.qr_code;
-          qrWrapper.style.display = "block";
-        } else {
-          qrWrapper.style.display = "none";
-        }
       } catch (err) {
         showError("Network error — could not reach the backend.");
       } finally {
@@ -864,7 +845,6 @@
 
       const paxName  = document.getElementById("pax-name").value.trim();
       const paxAge   = document.getElementById("pax-age").value.trim();
-      const paxEmail = document.getElementById("pax-email").value.trim();
 
       /* Validate */
       if (!paxName) {
@@ -877,27 +857,32 @@
         document.getElementById("alert-passenger-error").classList.add("visible");
         return;
       }
-      if (!paxEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(paxEmail)) {
-        document.getElementById("alert-passenger-error-text").textContent = "Please enter a valid email address.";
-        document.getElementById("alert-passenger-error").classList.add("visible");
-        return;
-      }
 
       paySpinner.style.display = "block";
       payBtn.disabled = true;
 
       try {
+        /* Build request body with pre-allocated seat details */
+        const bookingBody = {
+          train_no: trainSelect.value,
+          from:     sourceSelect.value,
+          to:       destSelect.value,
+          name:     paxName,
+          age:      parseInt(paxAge),
+        };
+
+        /* Pass pre-allocated seat info to avoid double allocation */
+        if (lastAllocation) {
+          bookingBody.coach           = lastAllocation.coach;
+          bookingBody.berth_no        = lastAllocation.berth_no;
+          bookingBody.berth_type      = lastAllocation.berth_type;
+          bookingBody.allocation_type = lastAllocation.allocation_type;
+        }
+
         const res = await fetch(API_BASE + "/book_ticket", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            train_no: trainSelect.value,
-            from:     sourceSelect.value,
-            to:       destSelect.value,
-            name:     paxName,
-            age:      parseInt(paxAge),
-            email:    paxEmail
-          }),
+          body: JSON.stringify(bookingBody),
         });
 
         const data = await res.json();
@@ -914,9 +899,9 @@
         hideAlerts();
 
         document.getElementById("conf-ticket-id").textContent = data.ticket_id;
+        document.getElementById("conf-status").innerHTML      = '<span class="badge badge-green">' + data.status + '</span>';
         document.getElementById("conf-name").textContent      = data.name;
         document.getElementById("conf-age").textContent       = data.age;
-        document.getElementById("conf-email").textContent     = data.email;
         document.getElementById("conf-train").textContent     = data.seat_details.train_no;
         document.getElementById("conf-coach").textContent     = data.seat_details.coach;
         document.getElementById("conf-berth").textContent     = data.seat_details.berth_no;
@@ -926,11 +911,6 @@
         document.getElementById("conf-price").textContent     = "₹" + data.price;
         document.getElementById("conf-time").textContent      = data.booking_time;
         document.getElementById("conf-validity").textContent  = data.validity;
-
-        const emailBadge = data.email_status === "sent"
-          ? '<span class="badge badge-green">Sent</span>'
-          : '<span class="badge badge-amber">' + (data.email_status || "N/A") + '</span>';
-        document.getElementById("conf-email-status").innerHTML = emailBadge;
 
         const confQr = document.getElementById("conf-qr-wrapper");
         if (data.qr_url) {
@@ -963,10 +943,25 @@
       lastAllocation = null;
       document.getElementById("pax-name").value  = "";
       document.getElementById("pax-age").value   = "";
-      document.getElementById("pax-email").value = "";
       trainSelect.value = "";
       trainSelect.dispatchEvent(new Event("change"));
       window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    /* =================================================================
+     * DOWNLOAD QR CODE
+     * ================================================================= */
+
+    document.getElementById("download-qr-btn").addEventListener("click", function () {
+      const img = document.getElementById("conf-qr-img");
+      if (!img.src) return;
+      const a = document.createElement("a");
+      a.href = img.src;
+      a.download = "SmartSeat_Ticket_QR.png";
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     });
 
     /* =================================================================

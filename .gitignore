@@ -20,6 +20,9 @@ data/simulation_state.json
 # Generated QR images (not committed — created at runtime)
 qr_codes/*.png
 
+# Static directory (generated at runtime from index.html)
+static/
+
 # IDE / OS
 .idea/
 .vscode/
