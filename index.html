@@ -862,9 +862,9 @@
       /* Hide previous passenger errors */
       document.getElementById("alert-passenger-error").classList.remove("visible");
 
-      var paxName  = document.getElementById("pax-name").value.trim();
-      var paxAge   = document.getElementById("pax-age").value.trim();
-      var paxEmail = document.getElementById("pax-email").value.trim();
+      const paxName  = document.getElementById("pax-name").value.trim();
+      const paxAge   = document.getElementById("pax-age").value.trim();
+      const paxEmail = document.getElementById("pax-email").value.trim();
 
       /* Validate */
       if (!paxName) {
@@ -887,7 +887,7 @@
       payBtn.disabled = true;
 
       try {
-        var res = await fetch(API_BASE + "/book_ticket", {
+        const res = await fetch(API_BASE + "/book_ticket", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -900,7 +900,7 @@
           }),
         });
 
-        var data = await res.json();
+        const data = await res.json();
 
         if (!res.ok) {
           document.getElementById("alert-passenger-error-text").textContent = data.detail || "Booking failed.";
@@ -927,12 +927,12 @@
         document.getElementById("conf-time").textContent      = data.booking_time;
         document.getElementById("conf-validity").textContent  = data.validity;
 
-        var emailBadge = data.email_status === "sent"
+        const emailBadge = data.email_status === "sent"
           ? '<span class="badge badge-green">Sent</span>'
           : '<span class="badge badge-amber">' + (data.email_status || "N/A") + '</span>';
         document.getElementById("conf-email-status").innerHTML = emailBadge;
 
-        var confQr = document.getElementById("conf-qr-wrapper");
+        const confQr = document.getElementById("conf-qr-wrapper");
         if (data.qr_url) {
           document.getElementById("conf-qr-img").src = API_BASE + data.qr_url;
           confQr.style.display = "block";

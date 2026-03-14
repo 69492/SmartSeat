@@ -320,7 +320,7 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
 
     # --- QR code ---
     try:
-        qr_path = qr_generator.generate_qr({**ticket})
+        qr_path = qr_generator.generate_qr(ticket)
         qr_filename = os.path.basename(qr_path)
     except Exception:
         qr_path = None
