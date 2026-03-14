@@ -104,3 +104,45 @@ def test_static_index_html():
     response = client.get("/static/index.html")
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
+
+
+# ---------------------------------------------------------------------------
+# CORS tests
+# ---------------------------------------------------------------------------
+
+def test_cors_preflight_request():
+    """Test that CORS preflight requests return proper headers."""
+    response = client.options(
+        "/allocate",
+        headers={
+            "Origin": "https://example.com",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Content-Type",
+        },
+    )
+    assert response.status_code == 200
+    assert "access-control-allow-origin" in response.headers
+    assert "access-control-allow-methods" in response.headers
+    assert "access-control-allow-headers" in response.headers
+
+
+def test_cors_headers_on_json_request():
+    """Test that CORS headers are returned for cross-origin JSON requests."""
+    response = client.get(
+        "/trains",
+        headers={"Origin": "https://example.com"},
+    )
+    assert response.status_code == 200
+    assert "access-control-allow-origin" in response.headers
+    assert "access-control-allow-credentials" in response.headers
+
+
+def test_cors_headers_on_post_request():
+    """Test that CORS headers are returned for POST requests with JSON body."""
+    response = client.post(
+        "/simulation/reset",
+        json={"train_no": "12301"},
+        headers={"Origin": "https://example.com"},
+    )
+    assert response.status_code == 200
+    assert "access-control-allow-origin" in response.headers
