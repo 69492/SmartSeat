@@ -79,6 +79,10 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 # CORS — allow the frontend to call the API from any origin
 # ---------------------------------------------------------------------------
+# NOTE: For production use with specific external frontends, set
+# CORS_ORIGINS to a comma-separated list of allowed domains instead of "*".
+# Example: CORS_ORIGINS="https://myapp.github.io,https://myapp.com"
+# The current "*" configuration is suitable for development and demo purposes.
 
 app.add_middleware(
     CORSMiddleware,

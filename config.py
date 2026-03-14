@@ -22,6 +22,8 @@ RELOAD: bool = os.getenv("API_RELOAD", "false").lower() == "true"
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "info").lower()
 
 # Comma-separated list of allowed CORS origins; "*" permits all origins.
+# For production, specify exact domains instead of "*" when using credentials.
+# Example: CORS_ORIGINS="https://myapp.github.io,https://example.com"
 CORS_ORIGINS: list[str] = [
     o.strip()
     for o in os.getenv("CORS_ORIGINS", "*").split(",")
@@ -29,6 +31,7 @@ CORS_ORIGINS: list[str] = [
 ]
 
 # Enable CORS credentials (cookies, authorization headers, etc.)
+# Note: For security in production, set specific CORS_ORIGINS when using credentials.
 CORS_ALLOW_CREDENTIALS: bool = os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
 
 # ---------------------------------------------------------------------------
