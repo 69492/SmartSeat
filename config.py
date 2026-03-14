@@ -58,3 +58,19 @@ DATA_SEED: int = int(os.getenv("DATA_SEED", "42"))
 ML_MAX_DEPTH: int = int(os.getenv("ML_MAX_DEPTH", "6"))
 ML_RANDOM_STATE: int = int(os.getenv("ML_RANDOM_STATE", "42"))
 ML_TRAINING_SAMPLES: int = int(os.getenv("ML_TRAINING_SAMPLES", "500"))
+
+# ---------------------------------------------------------------------------
+# Email / SMTP (for ticket delivery)
+# ---------------------------------------------------------------------------
+
+SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER: str = os.getenv("SMTP_USER", "")
+SMTP_PASS: str = os.getenv("SMTP_PASS", "")
+SMTP_FROM: str = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", ""))
+
+# ---------------------------------------------------------------------------
+# Booking
+# ---------------------------------------------------------------------------
+
+TICKET_PRICE: float = float(os.getenv("TICKET_PRICE", "450.00"))

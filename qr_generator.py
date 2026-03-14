@@ -48,6 +48,8 @@ def generate_qr(booking: dict[str, Any], output_dir: str = QR_DIR) -> str:
 
     # Build the payload string embedded in the QR code
     payload = {
+        "ticket_id":       booking.get("ticket_id", ""),
+        "name":            booking.get("name", ""),
         "train_no":        booking.get("train_no", ""),
         "coach":           booking.get("coach", ""),
         "berth_no":        booking.get("berth_no", ""),
@@ -55,6 +57,9 @@ def generate_qr(booking: dict[str, Any], output_dir: str = QR_DIR) -> str:
         "source":          booking.get("source", ""),
         "destination":     booking.get("destination", ""),
         "allocation_type": booking.get("allocation_type", ""),
+        "price":           booking.get("price", ""),
+        "booking_time":    booking.get("booking_time", ""),
+        "validity":        booking.get("validity", ""),
     }
 
     # Include segment details for PARTIAL allocations
