@@ -145,7 +145,12 @@ class BookTicketRequest(BaseModel):
     destination: str = Field(..., alias="to", serialization_alias="to")
     name: str
     age: int
-    email: str
+    email: str = ""
+    # Pre-allocated seat details (skip re-allocation when provided)
+    coach: str | None = None
+    berth_no: int | None = None
+    berth_type: str | None = None
+    allocation_type: str | None = None
 
     model_config = {"populate_by_name": True}
 
@@ -228,14 +233,6 @@ def allocate(request: AllocateRequest) -> dict[str, Any]:
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
 
-    # Generate QR code
-    booking_info = {**allocated, "source": source, "destination": destination}
-    try:
-        qr_path = qr_generator.generate_qr(booking_info)
-        qr_filename = os.path.basename(qr_path)
-    except Exception:
-        qr_filename = None
-
     return {
         "status":          "ALLOCATED",
         "train_no":        allocated["train_no"],
@@ -247,7 +244,6 @@ def allocate(request: AllocateRequest) -> dict[str, Any]:
         "allocation_type": allocated["allocation_type"],
         "segment":         allocated.get("segment"),
         "candidates_found": len(candidates),
-        "qr_code":         f"/qr/{qr_filename}" if qr_filename else None,
     }
 
 
@@ -255,7 +251,12 @@ def allocate(request: AllocateRequest) -> dict[str, Any]:
 @app.post("/book_ticket", tags=["Booking"])
 def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
     """
-    Full booking flow: allocate seat, generate ticket, create QR, send email.
+    Full booking flow: allocate seat (if not pre-allocated), generate ticket,
+    create QR, send email.
+
+    When ``coach`` and ``berth_no`` are provided the endpoint skips seat
+    allocation and uses the pre-allocated seat directly.  This avoids
+    double-allocation when the frontend already called ``/allocate``.
 
     Request body:
     ```json
@@ -265,7 +266,10 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
       "to": "New Delhi",
       "name": "John Doe",
       "age": 30,
-      "email": "john@example.com"
+      "coach": "S1",
+      "berth_no": 5,
+      "berth_type": "LB",
+      "allocation_type": "FULL_VACANT"
     }
     ```
     """
@@ -273,28 +277,37 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
     source      = request.source
     destination = request.destination
 
-    # --- Allocate seat (CSP + ML) ---
-    try:
-        candidates = allocation_engine.find_valid_berths(
-            train_no, source, destination, DATA_PATH
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    # --- Use pre-allocated seat or allocate a new one ---
+    if request.coach is not None and request.berth_no is not None:
+        allocated = {
+            "train_no":        train_no,
+            "coach":           request.coach,
+            "berth_no":        request.berth_no,
+            "berth_type":      request.berth_type or "",
+            "allocation_type": request.allocation_type or "",
+        }
+    else:
+        try:
+            candidates = allocation_engine.find_valid_berths(
+                train_no, source, destination, DATA_PATH
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
 
-    if not candidates:
-        raise HTTPException(
-            status_code=409,
-            detail="No valid berths available for the requested journey.",
-        )
+        if not candidates:
+            raise HTTPException(
+                status_code=409,
+                detail="No valid berths available for the requested journey.",
+            )
 
-    best = ml_model.get_best_berth(candidates)
+        best = ml_model.get_best_berth(candidates)
 
-    try:
-        allocated = allocation_engine.allocate_seat(
-            train_no, source, destination, DATA_PATH, ranked_berth=best
-        )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        try:
+            allocated = allocation_engine.allocate_seat(
+                train_no, source, destination, DATA_PATH, ranked_berth=best
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
 
     # --- Build ticket ---
     ticket_id = f"SM-{uuid.uuid4().hex[:8].upper()}"
@@ -316,6 +329,7 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
         "price":           price,
         "booking_time":    booking_time,
         "validity":        f"Valid until arrival at {destination}",
+        "status":          "CONFIRMED",
     }
 
     # --- QR code ---
@@ -346,6 +360,7 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
         "price":        price,
         "booking_time": booking_time,
         "validity":     f"Valid until arrival at {destination}",
+        "status":       "CONFIRMED",
         "qr_url":       f"/qr/{qr_filename}" if qr_filename else None,
         "email_status": email_status,
     }

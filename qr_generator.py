@@ -3,13 +3,12 @@ qr_generator.py
 ---------------
 QR code generation module for the Dynamic Train Seat Allocation System.
 
-Generates a QR code image containing booking details after a successful
-seat allocation and saves it to the qr_codes/ directory.
+Generates a QR code image containing human-readable ticket details after
+a successful payment and saves it to the qr_codes/ directory.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from typing import Any
@@ -27,15 +26,42 @@ logger = logging.getLogger(__name__)
 QR_DIR = config.QR_DIR
 
 
+def _build_readable_text(booking: dict[str, Any]) -> str:
+    """Build a human-readable ticket string for QR encoding."""
+    lines = [
+        "SmartSeat Ticket",
+        "",
+        f"Ticket ID: {booking.get('ticket_id', '')}",
+        f"Passenger: {booking.get('name', '')}",
+        f"Age: {booking.get('age', '')}",
+        f"Train: {booking.get('train_no', '')}",
+        f"Coach: {booking.get('coach', '')}",
+        f"Berth No: {booking.get('berth_no', '')}",
+        f"Berth Type: {booking.get('berth_type', '')}",
+        f"From: {booking.get('source', '')}",
+        f"To: {booking.get('destination', '')}",
+        f"Allocation: {booking.get('allocation_type', '')}",
+        f"Price: {booking.get('price', '')}",
+        f"Booked: {booking.get('booking_time', '')}",
+        f"Validity: {booking.get('validity', '')}",
+        f"Status: {booking.get('status', 'CONFIRMED')}",
+    ]
+    return "\n".join(lines)
+
+
 def generate_qr(booking: dict[str, Any], output_dir: str = QR_DIR) -> str:
     """
     Generate a QR code image for the given booking and save it to disk.
+
+    The QR encodes a human-readable ticket text (not JSON) so that it
+    can be scanned and read by any standard QR scanner, phone camera,
+    or Google Lens.
 
     Parameters
     ----------
     booking : dict
         Must contain at minimum:
-            train_no, coach, berth_no, source, destination, allocation_type
+            ticket_id, name, train_no, coach, berth_no, source, destination
     output_dir : str
         Directory in which the PNG image is saved.
 
@@ -46,29 +72,7 @@ def generate_qr(booking: dict[str, Any], output_dir: str = QR_DIR) -> str:
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    # Build the payload string embedded in the QR code
-    payload = {
-        "ticket_id":       booking.get("ticket_id", ""),
-        "name":            booking.get("name", ""),
-        "train_no":        booking.get("train_no", ""),
-        "coach":           booking.get("coach", ""),
-        "berth_no":        booking.get("berth_no", ""),
-        "berth_type":      booking.get("berth_type", ""),
-        "source":          booking.get("source", ""),
-        "destination":     booking.get("destination", ""),
-        "allocation_type": booking.get("allocation_type", ""),
-        "price":           booking.get("price", ""),
-        "booking_time":    booking.get("booking_time", ""),
-        "validity":        booking.get("validity", ""),
-    }
-
-    # Include segment details for PARTIAL allocations
-    segment = booking.get("segment")
-    if segment:
-        payload["segment_from"] = segment.get("from", "")
-        payload["segment_to"]   = segment.get("to", "")
-
-    qr_text = json.dumps(payload, ensure_ascii=False)
+    qr_text = _build_readable_text(booking)
 
     # Create QR code with error-correction level M
     qr = qrcode.QRCode(
@@ -82,12 +86,9 @@ def generate_qr(booking: dict[str, Any], output_dir: str = QR_DIR) -> str:
 
     img = qr.make_image(fill_color="black", back_color="white")
 
-    # File name: <train_no>_<coach>_<berth_no>.png
-    filename = (
-        f"{booking.get('train_no', 'TRAIN')}"
-        f"_{booking.get('coach', 'C')}"
-        f"_{booking.get('berth_no', 0)}.png"
-    )
+    # File name: <ticket_id>.png (unique per booking)
+    ticket_id = booking.get("ticket_id", "TICKET")
+    filename = f"{ticket_id}.png"
     filepath = os.path.join(output_dir, filename)
     img.save(filepath)
     return filepath
