@@ -597,7 +597,7 @@
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-          Download QR Code
+          Download QR Ticket
         </button>
       </div>
 
@@ -915,6 +915,7 @@
         const confQr = document.getElementById("conf-qr-wrapper");
         if (data.qr_url) {
           document.getElementById("conf-qr-img").src = API_BASE + data.qr_url;
+          document.getElementById("download-qr-btn").dataset.ticketId = data.ticket_id || "";
           confQr.style.display = "block";
         } else {
           confQr.style.display = "none";
@@ -955,13 +956,20 @@
     document.getElementById("download-qr-btn").addEventListener("click", function () {
       const img = document.getElementById("conf-qr-img");
       if (!img.src) return;
-      const a = document.createElement("a");
-      a.href = img.src;
-      a.download = "SmartSeat_Ticket_QR.png";
-      a.target = "_blank";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const ticketId = this.dataset.ticketId || "QR";
+      const fileName = "SmartSeat_Ticket_" + ticketId + ".png";
+      fetch(img.src)
+        .then(function (res) { return res.blob(); })
+        .then(function (blob) {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
     });
 
     /* =================================================================

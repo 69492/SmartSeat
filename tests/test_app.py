@@ -107,6 +107,21 @@ def test_static_index_html():
     assert "text/html" in response.headers["content-type"]
 
 
+def test_ui_qr_download_button():
+    """Test that the QR download button uses fetch+blob (no target=_blank)."""
+    response = client.get("/ui")
+    assert response.status_code == 200
+    html = response.text
+    # Button text must be "Download QR Ticket"
+    assert "Download QR Ticket" in html
+    # Must NOT open a new tab
+    assert 'a.target = "_blank"' not in html
+    # Must use fetch+blob download approach
+    assert "URL.createObjectURL" in html
+    # Filename must start with SmartSeat_Ticket_
+    assert "SmartSeat_Ticket_" in html
+
+
 # ---------------------------------------------------------------------------
 # CORS tests
 # ---------------------------------------------------------------------------
