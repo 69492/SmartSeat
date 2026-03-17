@@ -494,14 +494,6 @@
         </select>
       </div>
 
-      <!-- Recommendation button -->
-      <button id="recommend-btn" class="btn btn-primary" disabled>
-        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-        Get Seat Recommendations
-      </button>
-
       <!-- Loading spinner -->
       <div id="spinner" class="spinner"></div>
     </div>
@@ -664,7 +656,6 @@
     const sourceSelect = document.getElementById("source-select");
     const destSelect   = document.getElementById("dest-select");
     const findTrainsBtn = document.getElementById("find-trains-btn");
-    const recommendBtn  = document.getElementById("recommend-btn");
     const spinner      = document.getElementById("spinner");
     const resultPanel  = document.getElementById("result-panel");
     const alertError   = document.getElementById("alert-error");
@@ -802,18 +793,17 @@
         });
 
         trainSelect.disabled = matchedTrains.length === 0;
-        recommendBtn.disabled = true;
         if (!matchedTrains.length) {
           showError("No trains found between selected stations.");
         } else {
-          showSuccess("Select one train to get top seat recommendations.");
+          showSuccess("Select one train to automatically get top seat recommendations.");
         }
       } catch (err) {
         showError("Unable to search trains for selected stations.");
       }
     });
 
-    trainSelect.addEventListener("change", function () {
+    trainSelect.addEventListener("change", async function () {
       hideAlerts();
       resultPanel.style.display = "none";
       passengerPanel.style.display = "none";
@@ -825,10 +815,9 @@
       lastAllocation = null;
 
       if (!trainSelect.value) {
-        recommendBtn.disabled = true;
         return;
       }
-      recommendBtn.disabled = false;
+      await fetchRecommendations();
     });
 
     function renderRecommendationList(items) {
@@ -877,7 +866,7 @@
      * GET RECOMMENDATIONS  (POST /recommendations)
      * ================================================================= */
 
-    recommendBtn.addEventListener("click", async function () {
+    async function fetchRecommendations() {
       hideAlerts();
       resultPanel.style.display = "none";
       passengerPanel.style.display = "none";
@@ -914,7 +903,6 @@
 
       /* ---------- API call ---------- */
       spinner.style.display = "block";
-      recommendBtn.disabled = true;
 
       try {
         const res = await fetch(API_BASE + "/recommendations", {
@@ -964,9 +952,8 @@
         showError("Network error — could not reach the backend.");
       } finally {
         spinner.style.display = "none";
-        recommendBtn.disabled  = false;
       }
-    });
+    }
 
     /* =================================================================
      * PROCEED TO PAYMENT — show passenger form

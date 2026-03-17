@@ -148,7 +148,7 @@ def test_ui_qr_download_button():
 
 
 def test_ui_uses_deployed_backend_for_train_search():
-    """UI should call deployed backend POST /trains/search with source/destination JSON."""
+    """UI should search trains and auto-fetch recommendations after train selection."""
     response = client.get("/ui")
     assert response.status_code == 200
     html = response.text
@@ -156,6 +156,10 @@ def test_ui_uses_deployed_backend_for_train_search():
     assert 'fetch(API_BASE + "/trains/search"' in html
     assert 'method: "POST"' in html
     assert 'JSON.stringify({ source: source, destination: dest })' in html
+    assert 'fetch(API_BASE + "/recommendations"' in html
+    assert 'trainSelect.addEventListener("change", async function ()' in html
+    assert "await fetchRecommendations();" in html
+    assert "Get Seat Recommendations" not in html
 
 
 # ---------------------------------------------------------------------------
