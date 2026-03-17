@@ -657,7 +657,7 @@
      *   - Local dev  :  ""  (empty string — same origin)
      *   - Remote     :  "https://your-server.example.com"
      * ----------------------------------------------------------------- */
-    const API_BASE = window.location.origin;
+    const API_BASE = "https://smartseat-d91a.onrender.com";
 
     /* ----- DOM references ----- */
     const trainSelect  = document.getElementById("train-select");
@@ -781,7 +781,7 @@
         const res = await fetch(API_BASE + "/trains/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ from: source, to: dest }),
+          body: JSON.stringify({ source: source, destination: dest }),
         });
         if (!res.ok) throw new Error("Search failed");
         matchedTrains = await res.json();
