@@ -237,6 +237,23 @@
       font-size: .87rem;
       color: #1f2937;
     }
+    .recommendation-option {
+      appearance: none;
+      width: 100%;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+      transition: border-color .2s, box-shadow .2s, background-color .2s;
+    }
+    .recommendation-option:hover {
+      border-color: #94a3b8;
+      background-color: #fff;
+    }
+    .recommendation-option.selected {
+      border-color: #2563eb;
+      background-color: #eff6ff;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+    }
     .train-list {
       display: grid;
       gap: 10px;
@@ -703,6 +720,7 @@
     let trainsData = [];   // cached list from GET /trains
     let matchedTrains = []; // trains matching source/destination
     let selectedTrainNo = "";
+    let selectedRecommendation = null;
     let lastAllocation = null;  // last allocation result for booking
 
     /* =================================================================
@@ -781,6 +799,7 @@
       nearbyOptionsWrap.style.display = "none";
       proceedBtn.style.display = "inline-flex";
       lastAllocation = null;
+      selectedRecommendation = null;
 
       const source = sourceSelect.value;
       const dest = destSelect.value;
@@ -832,17 +851,43 @@
 
     function renderRecommendationList(items) {
       recommendationsList.innerHTML = "";
+      selectedRecommendation = null;
       items.forEach(function (item, index) {
-        const div = document.createElement("div");
-        div.className = "mini-card";
+        const div = document.createElement("button");
+        div.type = "button";
+        div.className = "mini-card recommendation-option";
         div.innerHTML =
           "<strong>#" + (index + 1) + "</strong> • Coach " + item.coach +
           " • Berth " + item.berth_no +
-          " • <span class='badge " + (item.availability_label === "FULL_VACANT" ? "badge-green" : "badge-amber") + "'>" +
-          item.availability_label + "</span>" +
-          " • Score " + item.ranking_score.toFixed(2);
+          (item.berth_type ? " • " + item.berth_type : "") +
+          " • <span class='badge " + (item.allocation_type === "FULL_VACANT" ? "badge-green" : "badge-amber") + "'>" +
+          item.allocation_type + "</span>";
+        div.addEventListener("click", function () {
+          Array.from(recommendationsList.querySelectorAll(".recommendation-option")).forEach(function (card) {
+            card.classList.remove("selected");
+          });
+          div.classList.add("selected");
+          selectedRecommendation = item;
+          lastAllocation = {
+            coach: item.coach,
+            berth_no: item.berth_no,
+            berth_type: item.berth_type,
+            allocation_type: item.allocation_type,
+          };
+          document.getElementById("res-coach").textContent = item.coach;
+          document.getElementById("res-berth").textContent = item.berth_no;
+          document.getElementById("res-type").innerHTML = item.berth_type
+            ? '<span class="badge badge-blue">' + item.berth_type + '</span>'
+            : "—";
+          document.getElementById("res-alloc").innerHTML = '<span class="badge ' + (item.allocation_type === "FULL_VACANT" ? "badge-green" : "badge-amber") + '">' + item.allocation_type + '</span>';
+          document.getElementById("res-segment").textContent = item.segment ? (item.segment.from + " → " + item.segment.to) : "—";
+        });
         recommendationsList.appendChild(div);
       });
+      const firstOption = recommendationsList.querySelector(".recommendation-option");
+      if (firstOption) {
+        firstOption.click();
+      }
       recommendationsWrap.style.display = items.length ? "block" : "none";
     }
 
@@ -886,6 +931,7 @@
       nearbyOptionsWrap.style.display = "none";
       proceedBtn.style.display = "inline-flex";
       lastAllocation = null;
+      selectedRecommendation = null;
 
       const trainNo = selectedTrainNo;
       const source  = sourceSelect.value;
@@ -933,25 +979,13 @@
         renderNearbyOptions(data.nearby_station_options || []);
 
         if ((data.recommendations || []).length > 0) {
-          const best = data.recommendations[0];
           showSuccess("Top seat recommendations generated.");
           proceedBtn.style.display = "inline-flex";
 
           document.getElementById("res-train").textContent   = data.train_no;
-          document.getElementById("res-coach").textContent   = best.coach;
-          document.getElementById("res-berth").textContent   = best.berth_no;
-          document.getElementById("res-type").innerHTML      = '<span class="badge badge-blue">' + best.berth_type + '</span>';
-          document.getElementById("res-alloc").innerHTML     = '<span class="badge badge-green">' + best.availability_label + '</span>';
-          document.getElementById("res-segment").textContent = best.segment ? (best.segment.from + " → " + best.segment.to) : "—";
           document.getElementById("res-journey").textContent = data.source + "  →  " + data.destination;
 
           resultPanel.style.display = "block";
-          lastAllocation = {
-            coach: best.coach,
-            berth_no: best.berth_no,
-            berth_type: best.berth_type,
-            allocation_type: best.allocation_type,
-          };
         } else {
           showError("No direct berth for full journey. Showing segment and nearby options.");
           proceedBtn.style.display = "none";
@@ -1081,6 +1115,7 @@
       passengerPanel.style.display    = "none";
       hideAlerts();
       lastAllocation = null;
+      selectedRecommendation = null;
       proceedBtn.style.display = "inline-flex";
       document.getElementById("pax-name").value  = "";
       document.getElementById("pax-age").value   = "";

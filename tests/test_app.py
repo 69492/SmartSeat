@@ -163,6 +163,11 @@ def test_ui_uses_deployed_backend_for_train_search():
     assert 'item.addEventListener("click", async function () {' in html
     assert 'selectedTrainNo = t.train_no;' in html
     assert "await fetchRecommendations();" in html
+    assert 'div.className = "mini-card recommendation-option";' in html
+    assert 'selectedRecommendation = item;' in html
+    assert 'firstOption.click();' in html
+    assert "item.ranking_score.toFixed(2)" not in html
+    assert "Score " not in html
     assert 'id="train-select"' not in html
     assert "Get Seat Recommendations" not in html
 
