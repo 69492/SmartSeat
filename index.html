@@ -237,6 +237,30 @@
       font-size: .87rem;
       color: #1f2937;
     }
+    .train-list {
+      display: grid;
+      gap: 10px;
+    }
+    .train-option {
+      width: 100%;
+      text-align: left;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #f8fafc;
+      color: #334155;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: border-color .2s, box-shadow .2s, background-color .2s;
+    }
+    .train-option:hover {
+      border-color: #94a3b8;
+      background-color: #fff;
+    }
+    .train-option.selected {
+      border-color: #2563eb;
+      background-color: #eff6ff;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+    }
 
     /* ---------- QR code image ---------- */
     .qr-wrapper {
@@ -483,15 +507,15 @@
 
       <!-- Train selection -->
       <div class="form-group">
-        <label for="train-select">
+        <label for="train-list">
           <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="21" r="1"/><circle cx="16" cy="21" r="1"/><path d="M8 17v3h8v-3"/>
           </svg>
           Select Train
         </label>
-        <select id="train-select" disabled>
-          <option value="">— Find trains for this route first —</option>
-        </select>
+        <div id="train-list" class="train-list">
+          <div class="mini-card">— Find trains for this route first —</div>
+        </div>
       </div>
 
       <!-- Loading spinner -->
@@ -652,7 +676,7 @@
     const API_BASE = "https://smartseat-d91a.onrender.com";
 
     /* ----- DOM references ----- */
-    const trainSelect  = document.getElementById("train-select");
+    const trainList    = document.getElementById("train-list");
     const sourceSelect = document.getElementById("source-select");
     const destSelect   = document.getElementById("dest-select");
     const findTrainsBtn = document.getElementById("find-trains-btn");
@@ -678,6 +702,7 @@
     /* ----- State ----- */
     let trainsData = [];   // cached list from GET /trains
     let matchedTrains = []; // trains matching source/destination
+    let selectedTrainNo = "";
     let lastAllocation = null;  // last allocation result for booking
 
     /* =================================================================
@@ -776,48 +801,35 @@
         });
         if (!res.ok) throw new Error("Search failed");
         matchedTrains = await res.json();
-
-        trainSelect.innerHTML = "";
-        const defaultOpt = document.createElement("option");
-        defaultOpt.value = "";
-        defaultOpt.textContent = matchedTrains.length
-          ? "— Choose a train —"
-          : "— No trains available for this station pair —";
-        trainSelect.appendChild(defaultOpt);
-
+        selectedTrainNo = "";
+        trainList.innerHTML = "";
         matchedTrains.forEach(function (t) {
-          const o = document.createElement("option");
-          o.value = t.train_no;
-          o.textContent = t.train_no + " — " + t.train_name;
-          trainSelect.appendChild(o);
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "train-option";
+          item.textContent = t.train_no + " — " + t.train_name;
+          item.dataset.trainNo = t.train_no;
+          item.addEventListener("click", async function () {
+            Array.from(trainList.querySelectorAll(".train-option")).forEach(function (btn) {
+              btn.classList.remove("selected");
+            });
+            item.classList.add("selected");
+            selectedTrainNo = t.train_no;
+            await fetchRecommendations();
+          });
+          trainList.appendChild(item);
         });
-
-        trainSelect.disabled = matchedTrains.length === 0;
+        if (!matchedTrains.length) {
+          trainList.innerHTML = '<div class="mini-card">— No trains available for this station pair —</div>';
+        }
         if (!matchedTrains.length) {
           showError("No trains found between selected stations.");
         } else {
-          showSuccess("Select one train to automatically get top seat recommendations.");
+          showSuccess("Select one train card to automatically get top seat recommendations.");
         }
       } catch (err) {
         showError("Unable to search trains for selected stations.");
       }
-    });
-
-    trainSelect.addEventListener("change", async function () {
-      hideAlerts();
-      resultPanel.style.display = "none";
-      passengerPanel.style.display = "none";
-      confirmationPanel.style.display = "none";
-      recommendationsWrap.style.display = "none";
-      segmentOptionsWrap.style.display = "none";
-      nearbyOptionsWrap.style.display = "none";
-      proceedBtn.style.display = "inline-flex";
-      lastAllocation = null;
-
-      if (!trainSelect.value) {
-        return;
-      }
-      await fetchRecommendations();
     });
 
     function renderRecommendationList(items) {
@@ -877,7 +889,7 @@
       proceedBtn.style.display = "inline-flex";
       lastAllocation = null;
 
-      const trainNo = trainSelect.value;
+      const trainNo = selectedTrainNo;
       const source  = sourceSelect.value;
       const dest    = destSelect.value;
 
@@ -993,7 +1005,7 @@
       try {
         /* Build request body with pre-allocated seat details */
         const bookingBody = {
-          train_no: trainSelect.value,
+          train_no: selectedTrainNo,
           from:     sourceSelect.value,
           to:       destSelect.value,
           name:     paxName,
@@ -1074,8 +1086,10 @@
       proceedBtn.style.display = "inline-flex";
       document.getElementById("pax-name").value  = "";
       document.getElementById("pax-age").value   = "";
-      trainSelect.value = "";
-      trainSelect.dispatchEvent(new Event("change"));
+      selectedTrainNo = "";
+      Array.from(trainList.querySelectorAll(".train-option")).forEach(function (btn) {
+        btn.classList.remove("selected");
+      });
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
 

@@ -148,7 +148,7 @@ def test_ui_qr_download_button():
 
 
 def test_ui_uses_deployed_backend_for_train_search():
-    """UI should search trains and auto-fetch recommendations after train selection."""
+    """UI should search trains and auto-fetch recommendations after clickable train selection."""
     response = client.get("/ui")
     assert response.status_code == 200
     html = response.text
@@ -157,8 +157,12 @@ def test_ui_uses_deployed_backend_for_train_search():
     assert 'method: "POST"' in html
     assert 'JSON.stringify({ source: source, destination: dest })' in html
     assert 'fetch(API_BASE + "/recommendations"' in html
-    assert 'trainSelect.addEventListener("change", async function ()' in html
+    assert 'const trainList    = document.getElementById("train-list");' in html
+    assert 'item.className = "train-option";' in html
+    assert 'item.addEventListener("click", async function () {' in html
+    assert 'selectedTrainNo = t.train_no;' in html
     assert "await fetchRecommendations();" in html
+    assert 'id="train-select"' not in html
     assert "Get Seat Recommendations" not in html
 
 
