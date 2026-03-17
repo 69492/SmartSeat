@@ -1,5 +1,6 @@
 """Tests for the allocation engine module."""
 
+import json
 import os
 
 import data_generator
@@ -79,3 +80,76 @@ def test_allocate_and_release(tmp_data_dir):
         data_path,
     )
     assert isinstance(released, dict)
+
+
+def test_find_segment_allocation_options(tmp_path):
+    data_path = os.path.join(str(tmp_path), "train_data.json")
+    custom_data = [
+        {
+            "train_no": "T100",
+            "train_name": "Test Train",
+            "route": ["A", "B", "C", "D"],
+            "coaches": [
+                {
+                    "coach": "S1",
+                    "berths": [
+                        {
+                            "berth_no": 1,
+                            "berth_type": "LB",
+                            "status": "PARTIAL",
+                            "segments": [
+                                {"from": "A", "to": "B", "status": "VACANT"},
+                                {"from": "B", "to": "D", "status": "VACANT"},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+    ]
+    with open(data_path, "w", encoding="utf-8") as fh:
+        json.dump(custom_data, fh)
+
+    options = allocation_engine.find_segment_allocation_options(
+        "T100", "A", "D", data_path
+    )
+    assert options
+    assert options[0]["allocation_label"] == "Segment Allocation Option"
+    assert options[0]["continuity"] == "SAME_BERTH"
+    assert len(options[0]["segments"]) == 2
+
+
+def test_suggest_nearby_destinations(tmp_path):
+    data_path = os.path.join(str(tmp_path), "train_data.json")
+    custom_data = [
+        {
+            "train_no": "T101",
+            "train_name": "Nearby Train",
+            "route": ["A", "B", "C", "D", "E"],
+            "coaches": [
+                {
+                    "coach": "S1",
+                    "berths": [
+                        {
+                            "berth_no": 2,
+                            "berth_type": "UB",
+                            "status": "PARTIAL",
+                            "segments": [
+                                {"from": "A", "to": "C", "status": "VACANT"},
+                                {"from": "C", "to": "D", "status": "OCCUPIED"},
+                                {"from": "D", "to": "E", "status": "OCCUPIED"},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+    ]
+    with open(data_path, "w", encoding="utf-8") as fh:
+        json.dump(custom_data, fh)
+
+    nearby = allocation_engine.suggest_nearby_destinations(
+        "T101", "A", "D", data_path
+    )
+    assert nearby
+    assert nearby[0]["station"] == "C"

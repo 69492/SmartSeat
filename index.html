@@ -228,6 +228,15 @@
     .badge-blue   { background: #dbeafe; color: #1d4ed8; }
     .badge-green  { background: #dcfce7; color: #15803d; }
     .badge-amber  { background: #fef3c7; color: #92400e; }
+    .mini-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      font-size: .87rem;
+      color: #1f2937;
+    }
 
     /* ---------- QR code image ---------- */
     .qr-wrapper {
@@ -439,19 +448,6 @@
         <span id="alert-success-text"></span>
       </div>
 
-      <!-- Train selection -->
-      <div class="form-group">
-        <label for="train-select">
-          <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="21" r="1"/><circle cx="16" cy="21" r="1"/><path d="M8 17v3h8v-3"/>
-          </svg>
-          Select Train
-        </label>
-        <select id="train-select">
-          <option value="">— Loading trains… —</option>
-        </select>
-      </div>
-
       <!-- Source station -->
       <div class="form-group">
         <label for="source-select">
@@ -460,8 +456,8 @@
           </svg>
           Source Station
         </label>
-        <select id="source-select" disabled>
-          <option value="">— Select a train first —</option>
+        <select id="source-select">
+          <option value="">— Loading stations… —</option>
         </select>
       </div>
 
@@ -473,17 +469,37 @@
           </svg>
           Destination Station
         </label>
-        <select id="dest-select" disabled>
-          <option value="">— Select a train first —</option>
+        <select id="dest-select">
+          <option value="">— Loading stations… —</option>
         </select>
       </div>
 
-      <!-- Allocate button -->
-      <button id="allocate-btn" class="btn btn-primary" disabled>
+      <button id="find-trains-btn" class="btn btn-success">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        Find Trains
+      </button>
+
+      <!-- Train selection -->
+      <div class="form-group">
+        <label for="train-select">
+          <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="21" r="1"/><circle cx="16" cy="21" r="1"/><path d="M8 17v3h8v-3"/>
+          </svg>
+          Select Train
+        </label>
+        <select id="train-select" disabled>
+          <option value="">— Find trains for this route first —</option>
+        </select>
+      </div>
+
+      <!-- Recommendation button -->
+      <button id="recommend-btn" class="btn btn-primary" disabled>
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
         </svg>
-        Allocate Seat
+        Get Seat Recommendations
       </button>
 
       <!-- Loading spinner -->
@@ -508,6 +524,21 @@
         <tr><th>Segment</th>        <td id="res-segment"></td></tr>
         <tr><th>Journey</th>        <td id="res-journey"></td></tr>
       </table>
+
+      <div id="recommendations-wrap" style="display:none">
+        <h3 style="font-size:1rem;margin:10px 0">Top 3 Recommended Seats</h3>
+        <div id="recommendations-list"></div>
+      </div>
+
+      <div id="segment-options-wrap" style="display:none">
+        <h3 style="font-size:1rem;margin:10px 0">Segment Allocation Options</h3>
+        <div id="segment-options-list"></div>
+      </div>
+
+      <div id="nearby-options-wrap" style="display:none">
+        <h3 style="font-size:1rem;margin:10px 0">Nearby Reachable Stations</h3>
+        <div id="nearby-options-list"></div>
+      </div>
 
       <!-- Proceed to Payment button -->
       <button id="proceed-btn" class="btn btn-amber" style="margin-top:16px">
@@ -626,13 +657,14 @@
      *   - Local dev  :  ""  (empty string — same origin)
      *   - Remote     :  "https://your-server.example.com"
      * ----------------------------------------------------------------- */
-    const API_BASE = "https://smartseat-d91a.onrender.com";
+    const API_BASE = window.location.origin;
 
     /* ----- DOM references ----- */
     const trainSelect  = document.getElementById("train-select");
     const sourceSelect = document.getElementById("source-select");
     const destSelect   = document.getElementById("dest-select");
-    const allocateBtn  = document.getElementById("allocate-btn");
+    const findTrainsBtn = document.getElementById("find-trains-btn");
+    const recommendBtn  = document.getElementById("recommend-btn");
     const spinner      = document.getElementById("spinner");
     const resultPanel  = document.getElementById("result-panel");
     const alertError   = document.getElementById("alert-error");
@@ -645,9 +677,16 @@
     const paySpinner        = document.getElementById("pay-spinner");
     const confirmationPanel = document.getElementById("confirmation-panel");
     const newBookingBtn     = document.getElementById("new-booking-btn");
+    const recommendationsWrap = document.getElementById("recommendations-wrap");
+    const recommendationsList = document.getElementById("recommendations-list");
+    const segmentOptionsWrap = document.getElementById("segment-options-wrap");
+    const segmentOptionsList = document.getElementById("segment-options-list");
+    const nearbyOptionsWrap = document.getElementById("nearby-options-wrap");
+    const nearbyOptionsList = document.getElementById("nearby-options-list");
 
     /* ----- State ----- */
     let trainsData = [];   // cached list from GET /trains
+    let matchedTrains = []; // trains matching source/destination
     let lastAllocation = null;  // last allocation result for booking
 
     /* =================================================================
@@ -700,63 +739,153 @@
         const res = await fetch(API_BASE + "/trains");
         if (!res.ok) throw new Error("Failed to load trains (HTTP " + res.status + ")");
         trainsData = await res.json();
-
-        trainSelect.innerHTML = "";
-        const defaultOpt = document.createElement("option");
-        defaultOpt.value = "";
-        defaultOpt.textContent = "— Choose a train —";
-        trainSelect.appendChild(defaultOpt);
-
+        const stationSet = new Set();
         trainsData.forEach(function (t) {
-          const o = document.createElement("option");
-          o.value = t.train_no;
-          o.textContent = t.train_no + " — " + t.train_name;
-          trainSelect.appendChild(o);
+          t.route.forEach(function (station) { stationSet.add(station); });
         });
+        const stations = Array.from(stationSet).sort();
+        populateStationDropdown(sourceSelect, stations, "— Select source —");
+        populateStationDropdown(destSelect, stations, "— Select destination —");
       } catch (err) {
         showError("Unable to fetch train list. Is the backend running?");
       }
     }
 
     /* =================================================================
-     * TRAIN SELECTED — populate source / destination
+     * FIND TRAINS BY STATION PAIR  (POST /trains/search)
      * ================================================================= */
+
+    findTrainsBtn.addEventListener("click", async function () {
+      hideAlerts();
+      resultPanel.style.display = "none";
+      passengerPanel.style.display = "none";
+      confirmationPanel.style.display = "none";
+      recommendationsWrap.style.display = "none";
+      segmentOptionsWrap.style.display = "none";
+      nearbyOptionsWrap.style.display = "none";
+      proceedBtn.style.display = "inline-flex";
+      lastAllocation = null;
+
+      const source = sourceSelect.value;
+      const dest = destSelect.value;
+      if (!source || !dest) {
+        showError("Please select source and destination stations.");
+        return;
+      }
+      if (source === dest) {
+        showError("Source and destination cannot be the same.");
+        return;
+      }
+
+      try {
+        const res = await fetch(API_BASE + "/trains/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ from: source, to: dest }),
+        });
+        if (!res.ok) throw new Error("Search failed");
+        matchedTrains = await res.json();
+
+        trainSelect.innerHTML = "";
+        const defaultOpt = document.createElement("option");
+        defaultOpt.value = "";
+        defaultOpt.textContent = matchedTrains.length
+          ? "— Choose a train —"
+          : "— No trains available for this station pair —";
+        trainSelect.appendChild(defaultOpt);
+
+        matchedTrains.forEach(function (t) {
+          const o = document.createElement("option");
+          o.value = t.train_no;
+          o.textContent = t.train_no + " — " + t.train_name;
+          trainSelect.appendChild(o);
+        });
+
+        trainSelect.disabled = matchedTrains.length === 0;
+        recommendBtn.disabled = true;
+        if (!matchedTrains.length) {
+          showError("No trains found between selected stations.");
+        } else {
+          showSuccess("Select one train to get top seat recommendations.");
+        }
+      } catch (err) {
+        showError("Unable to search trains for selected stations.");
+      }
+    });
 
     trainSelect.addEventListener("change", function () {
       hideAlerts();
       resultPanel.style.display = "none";
       passengerPanel.style.display = "none";
       confirmationPanel.style.display = "none";
+      recommendationsWrap.style.display = "none";
+      segmentOptionsWrap.style.display = "none";
+      nearbyOptionsWrap.style.display = "none";
+      proceedBtn.style.display = "inline-flex";
       lastAllocation = null;
 
-      const trainNo = trainSelect.value;
-      if (!trainNo) {
-        sourceSelect.innerHTML = '<option value="">— Select a train first —</option>';
-        destSelect.innerHTML   = '<option value="">— Select a train first —</option>';
-        sourceSelect.disabled = true;
-        destSelect.disabled   = true;
-        allocateBtn.disabled  = true;
+      if (!trainSelect.value) {
+        recommendBtn.disabled = true;
         return;
       }
-
-      /* Find the train object */
-      const train = trainsData.find(function (t) { return t.train_no === trainNo; });
-      if (!train) return;
-
-      populateStationDropdown(sourceSelect, train.route, "— Select source —");
-      populateStationDropdown(destSelect,   train.route, "— Select destination —");
-      allocateBtn.disabled = false;
+      recommendBtn.disabled = false;
     });
 
+    function renderRecommendationList(items) {
+      recommendationsList.innerHTML = "";
+      items.forEach(function (item, index) {
+        const div = document.createElement("div");
+        div.className = "mini-card";
+        div.innerHTML =
+          "<strong>#" + (index + 1) + "</strong> • Coach " + item.coach +
+          " • Berth " + item.berth_no +
+          " • <span class='badge " + (item.availability_label === "FULL_VACANT" ? "badge-green" : "badge-amber") + "'>" +
+          item.availability_label + "</span>" +
+          " • Score " + item.ranking_score.toFixed(2);
+        recommendationsList.appendChild(div);
+      });
+      recommendationsWrap.style.display = items.length ? "block" : "none";
+    }
+
+    function renderSegmentOptions(items) {
+      segmentOptionsList.innerHTML = "";
+      items.forEach(function (option) {
+        const segmentsText = option.segments.map(function (leg) {
+          return leg.from + " → " + leg.to + " : " + leg.coach + "-" + leg.berth_no;
+        }).join(" | ");
+        const div = document.createElement("div");
+        div.className = "mini-card";
+        div.textContent = segmentsText;
+        segmentOptionsList.appendChild(div);
+      });
+      segmentOptionsWrap.style.display = items.length ? "block" : "none";
+    }
+
+    function renderNearbyOptions(items) {
+      nearbyOptionsList.innerHTML = "";
+      items.forEach(function (item) {
+        const div = document.createElement("div");
+        div.className = "mini-card";
+        const stopWord = item.distance_from_requested_stop === 1 ? "stop" : "stops";
+        div.textContent = item.station + " (" + item.direction + ", " + item.distance_from_requested_stop + " " + stopWord + " away)";
+        nearbyOptionsList.appendChild(div);
+      });
+      nearbyOptionsWrap.style.display = items.length ? "block" : "none";
+    }
+
     /* =================================================================
-     * ALLOCATE SEAT  (POST /allocate)
+     * GET RECOMMENDATIONS  (POST /recommendations)
      * ================================================================= */
 
-    allocateBtn.addEventListener("click", async function () {
+    recommendBtn.addEventListener("click", async function () {
       hideAlerts();
       resultPanel.style.display = "none";
       passengerPanel.style.display = "none";
       confirmationPanel.style.display = "none";
+      recommendationsWrap.style.display = "none";
+      segmentOptionsWrap.style.display = "none";
+      nearbyOptionsWrap.style.display = "none";
+      proceedBtn.style.display = "inline-flex";
       lastAllocation = null;
 
       const trainNo = trainSelect.value;
@@ -772,8 +901,8 @@
         return;
       }
 
-      /* Ensure source comes before destination in the route */
-      const train = trainsData.find(function (t) { return t.train_no === trainNo; });
+      /* Ensure source comes before destination in the selected route */
+      const train = matchedTrains.find(function (t) { return t.train_no === trainNo; });
       if (train) {
         const srcIdx  = train.route.indexOf(source);
         const destIdx = train.route.indexOf(dest);
@@ -785,10 +914,10 @@
 
       /* ---------- API call ---------- */
       spinner.style.display = "block";
-      allocateBtn.disabled = true;
+      recommendBtn.disabled = true;
 
       try {
-        const res = await fetch(API_BASE + "/allocate", {
+        const res = await fetch(API_BASE + "/recommendations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ train_no: trainNo, from: source, to: dest }),
@@ -797,32 +926,45 @@
         const data = await res.json();
 
         if (!res.ok) {
-          /* API returned an error (e.g. 409 no seats, 400 bad input) */
-          showError(data.detail || "Allocation failed.");
+          showError(data.detail || "Unable to fetch seat recommendations.");
           return;
         }
 
-        /* ---------- Display result ---------- */
-        showSuccess("Seat allocated successfully!");
+        renderRecommendationList(data.recommendations || []);
+        renderSegmentOptions(data.segment_allocation_options || []);
+        renderNearbyOptions(data.nearby_station_options || []);
 
-        document.getElementById("res-train").textContent   = data.train_no;
-        document.getElementById("res-coach").textContent   = data.coach;
-        document.getElementById("res-berth").textContent   = data.berth_no;
-        document.getElementById("res-type").innerHTML      = '<span class="badge badge-blue">' + data.berth_type + '</span>';
-        document.getElementById("res-alloc").innerHTML     = '<span class="badge badge-green">' + data.allocation_type + '</span>';
-        document.getElementById("res-segment").textContent = data.segment || "—";
-        document.getElementById("res-journey").textContent = data.source + "  →  " + data.destination;
+        if ((data.recommendations || []).length > 0) {
+          const best = data.recommendations[0];
+          showSuccess("Top seat recommendations generated.");
+          proceedBtn.style.display = "inline-flex";
 
-        resultPanel.style.display = "block";
+          document.getElementById("res-train").textContent   = data.train_no;
+          document.getElementById("res-coach").textContent   = best.coach;
+          document.getElementById("res-berth").textContent   = best.berth_no;
+          document.getElementById("res-type").innerHTML      = '<span class="badge badge-blue">' + best.berth_type + '</span>';
+          document.getElementById("res-alloc").innerHTML     = '<span class="badge badge-green">' + best.availability_label + '</span>';
+          document.getElementById("res-segment").textContent = best.segment ? (best.segment.from + " → " + best.segment.to) : "—";
+          document.getElementById("res-journey").textContent = data.source + "  →  " + data.destination;
 
-        /* Store allocation for booking flow */
-        lastAllocation = data;
+          resultPanel.style.display = "block";
+          lastAllocation = {
+            coach: best.coach,
+            berth_no: best.berth_no,
+            berth_type: best.berth_type,
+            allocation_type: best.allocation_type,
+          };
+        } else {
+          showError("No direct berth for full journey. Showing segment and nearby options.");
+          proceedBtn.style.display = "none";
+          resultPanel.style.display = "block";
+        }
 
       } catch (err) {
         showError("Network error — could not reach the backend.");
       } finally {
         spinner.style.display = "none";
-        allocateBtn.disabled  = false;
+        recommendBtn.disabled  = false;
       }
     });
 
@@ -942,6 +1084,7 @@
       passengerPanel.style.display    = "none";
       hideAlerts();
       lastAllocation = null;
+      proceedBtn.style.display = "inline-flex";
       document.getElementById("pax-name").value  = "";
       document.getElementById("pax-age").value   = "";
       trainSelect.value = "";

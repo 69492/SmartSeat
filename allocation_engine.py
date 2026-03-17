@@ -23,6 +23,7 @@ import json
 import logging
 import os
 from typing import Any
+from collections import defaultdict
 
 import config
 
@@ -33,6 +34,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 DATA_PATH = config.DATA_PATH
+MAX_SEGMENT_CHAIN_LENGTH = 4
+SEGMENT_OPTION_BASE_SCORE = 100
+SEGMENT_OPTION_TRANSFER_PENALTY = 15
 
 
 def _load_data(path: str = DATA_PATH) -> list[dict[str, Any]]:
@@ -150,6 +154,202 @@ def find_valid_berths(
                     "route":           route,
                 })
     return candidates
+
+
+def _extract_vacant_intervals(
+    berth: dict[str, Any],
+    route: list[str],
+) -> list[dict[str, Any]]:
+    """Return vacant journey intervals for a berth as route-index ranges."""
+    if berth["status"] == "FULL_OCCUPIED":
+        return []
+
+    if berth["status"] == "FULL_VACANT":
+        return [{
+            "from_idx": 0,
+            "to_idx": len(route) - 1,
+            "from": route[0],
+            "to": route[-1],
+            "availability": "FULL_VACANT",
+        }]
+
+    intervals: list[dict[str, Any]] = []
+    for seg in berth.get("segments", []):
+        if seg.get("status") != "VACANT":
+            continue
+        if seg.get("from") not in route or seg.get("to") not in route:
+            continue
+        from_idx = route.index(seg["from"])
+        to_idx = route.index(seg["to"])
+        if from_idx < to_idx:
+            intervals.append({
+                "from_idx": from_idx,
+                "to_idx": to_idx,
+                "from": seg["from"],
+                "to": seg["to"],
+                "availability": "PARTIAL_VACANT",
+            })
+    return intervals
+
+
+def _build_same_berth_segments(
+    intervals: list[dict[str, Any]],
+    src_idx: int,
+    dst_idx: int,
+    route: list[str],
+) -> list[dict[str, Any]] | None:
+    """Build a same-berth segment chain using greedy farthest extension."""
+    journey: list[dict[str, Any]] = []
+    current_idx = src_idx
+    ordered = sorted(intervals, key=lambda i: (i["from_idx"], i["to_idx"]))
+
+    while current_idx < dst_idx and len(journey) < MAX_SEGMENT_CHAIN_LENGTH:
+        covering = [i for i in ordered if i["from_idx"] <= current_idx < i["to_idx"]]
+        if not covering:
+            return None
+        best = max(covering, key=lambda i: i["to_idx"])
+        next_idx = min(best["to_idx"], dst_idx)
+        journey.append({
+            "from": route[current_idx],
+            "to": route[next_idx],
+            "availability": best["availability"],
+        })
+        current_idx = next_idx
+
+    if current_idx < dst_idx:
+        return None
+    return journey
+
+
+def find_segment_allocation_options(
+    train_no: str,
+    source: str,
+    destination: str,
+    data_path: str = DATA_PATH,
+    max_options: int = 3,
+) -> list[dict[str, Any]]:
+    """
+    Return fallback segment-wise allocation options within the same train.
+
+    Each option contains one or more contiguous legs from source to destination.
+    """
+    data = _load_data(data_path)
+    train = _find_train(data, train_no)
+    if train is None:
+        raise ValueError(f"Train '{train_no}' not found.")
+
+    route = train["route"]
+    if source not in route:
+        raise ValueError(f"Station '{source}' not in route {route}.")
+    if destination not in route:
+        raise ValueError(f"Station '{destination}' not in route {route}.")
+
+    src_idx = route.index(source)
+    dst_idx = route.index(destination)
+    if src_idx >= dst_idx:
+        raise ValueError("Source must come before destination in the route.")
+
+    by_berth: dict[tuple[str, int, str], list[dict[str, Any]]] = defaultdict(list)
+    for coach in train["coaches"]:
+        for berth in coach["berths"]:
+            for interval in _extract_vacant_intervals(berth, route):
+                by_berth[(coach["coach"], berth["berth_no"], berth["berth_type"])].append(interval)
+
+    options: list[dict[str, Any]] = []
+    for (coach, berth_no, berth_type), intervals in by_berth.items():
+        segments = _build_same_berth_segments(intervals, src_idx, dst_idx, route)
+        if not segments or len(segments) <= 1:
+            continue
+        options.append({
+            "allocation_label": "Segment Allocation Option",
+            "train_no": train_no,
+            "continuity": "SAME_BERTH",
+            "segments": [
+                {
+                    "coach": coach,
+                    "berth_no": berth_no,
+                    "berth_type": berth_type,
+                    "from": leg["from"],
+                    "to": leg["to"],
+                    "availability": leg["availability"],
+                }
+                for leg in segments
+            ],
+            "segment_count": len(segments),
+            "score": SEGMENT_OPTION_BASE_SCORE - (len(segments) - 1) * SEGMENT_OPTION_TRANSFER_PENALTY,
+        })
+
+    options.sort(key=lambda o: (-o["score"], o["segment_count"], o["segments"][0]["coach"], o["segments"][0]["berth_no"]))
+    return options[:max_options]
+
+
+def suggest_nearby_destinations(
+    train_no: str,
+    source: str,
+    destination: str,
+    data_path: str = DATA_PATH,
+    max_options: int = 3,
+) -> list[dict[str, Any]]:
+    """Suggest nearest reachable stations in the same train route."""
+    data = _load_data(data_path)
+    train = _find_train(data, train_no)
+    if train is None:
+        raise ValueError(f"Train '{train_no}' not found.")
+
+    route = train["route"]
+    if source not in route:
+        raise ValueError(f"Station '{source}' not in route {route}.")
+    if destination not in route:
+        raise ValueError(f"Station '{destination}' not in route {route}.")
+
+    src_idx = route.index(source)
+    dst_idx = route.index(destination)
+    if src_idx >= dst_idx:
+        raise ValueError("Source must come before destination in the route.")
+
+    nearby: list[dict[str, Any]] = []
+    for station_idx in range(src_idx + 1, len(route)):
+        station = route[station_idx]
+        if station == destination:
+            continue
+        direct_candidates = find_valid_berths(
+            train_no,
+            source,
+            station,
+            data_path=data_path,
+        )
+        segment_options = find_segment_allocation_options(
+            train_no,
+            source,
+            station,
+            data_path=data_path,
+            max_options=1,
+        )
+        if not direct_candidates and not segment_options:
+            continue
+        nearby.append({
+            "station": station,
+            "distance_from_requested_stop": abs(station_idx - dst_idx),
+            "direction": "BEFORE" if station_idx < dst_idx else "AFTER",
+            "sample_option": segment_options[0] if segment_options else {
+                "allocation_label": "Direct Seat Available",
+                "train_no": train_no,
+                "continuity": "SAME_BERTH",
+                "segments": [{
+                    "coach": direct_candidates[0]["coach"],
+                    "berth_no": direct_candidates[0]["berth_no"],
+                    "berth_type": direct_candidates[0]["berth_type"],
+                    "from": source,
+                    "to": station,
+                    "availability": "FULL_VACANT" if direct_candidates[0]["allocation_type"] == "FULL_VACANT" else "PARTIAL_VACANT",
+                }],
+                "segment_count": 1,
+                "score": direct_candidates[0].get("journey_distance", 1),
+            },
+        })
+
+    nearby.sort(key=lambda s: (s["distance_from_requested_stop"], s["direction"] != "BEFORE"))
+    return nearby[:max_options]
 
 
 def allocate_seat(
