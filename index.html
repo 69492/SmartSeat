@@ -821,8 +821,6 @@
         });
         if (!matchedTrains.length) {
           trainList.innerHTML = '<div class="mini-card">— No trains available for this station pair —</div>';
-        }
-        if (!matchedTrains.length) {
           showError("No trains found between selected stations.");
         } else {
           showSuccess("Select one train card to automatically get top seat recommendations.");

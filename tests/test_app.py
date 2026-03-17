@@ -157,7 +157,8 @@ def test_ui_uses_deployed_backend_for_train_search():
     assert 'method: "POST"' in html
     assert 'JSON.stringify({ source: source, destination: dest })' in html
     assert 'fetch(API_BASE + "/recommendations"' in html
-    assert 'const trainList    = document.getElementById("train-list");' in html
+    assert "const trainList" in html
+    assert 'document.getElementById("train-list")' in html
     assert 'item.className = "train-option";' in html
     assert 'item.addEventListener("click", async function () {' in html
     assert 'selectedTrainNo = t.train_no;' in html
