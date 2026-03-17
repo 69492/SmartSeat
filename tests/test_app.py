@@ -147,6 +147,17 @@ def test_ui_qr_download_button():
     assert "SmartSeat_Ticket_" in html
 
 
+def test_ui_uses_deployed_backend_for_train_search():
+    """UI should call deployed backend POST /trains/search with source/destination JSON."""
+    response = client.get("/ui")
+    assert response.status_code == 200
+    html = response.text
+    assert 'const API_BASE = "https://smartseat-d91a.onrender.com";' in html
+    assert 'fetch(API_BASE + "/trains/search"' in html
+    assert 'method: "POST"' in html
+    assert 'JSON.stringify({ source: source, destination: dest })' in html
+
+
 # ---------------------------------------------------------------------------
 # CORS tests
 # ---------------------------------------------------------------------------
