@@ -59,6 +59,31 @@ def test_allocate():
         assert "qr_code" not in body
 
 
+def test_search_trains_by_stations():
+    response = client.post(
+        "/trains/search",
+        json={"from": "Howrah", "to": "New Delhi"},
+    )
+    assert response.status_code == 200
+    trains = response.json()
+    assert isinstance(trains, list)
+    assert any(t["train_no"] == "12301" for t in trains)
+
+
+def test_recommendations_endpoint():
+    response = client.post(
+        "/recommendations",
+        json={"train_no": "12301", "from": "Howrah", "to": "New Delhi"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["train_no"] == "12301"
+    assert "recommendations" in body
+    assert "segment_allocation_options" in body
+    assert "nearby_station_options" in body
+    assert len(body["recommendations"]) <= 3
+
+
 def test_allocate_invalid_train():
     response = client.post(
         "/allocate",

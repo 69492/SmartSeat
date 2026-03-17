@@ -125,6 +125,15 @@ class AllocateRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class TrainSearchRequest(BaseModel):
+    """Request body for POST /trains/search."""
+
+    source: str = Field(..., alias="from", serialization_alias="from")
+    destination: str = Field(..., alias="to", serialization_alias="to")
+
+    model_config = {"populate_by_name": True}
+
+
 class ReleaseRequest(BaseModel):
     train_no: str
     coach: str
@@ -181,6 +190,30 @@ def list_trains() -> list[dict[str, Any]]:
         }
         for t in data
     ]
+
+
+# ------------------------------------------------------------------
+@app.post("/trains/search", tags=["Trains"])
+def search_trains(request: TrainSearchRequest) -> list[dict[str, Any]]:
+    """Return trains that pass through source and destination in order."""
+    source = request.source
+    destination = request.destination
+
+    data = data_generator.load_train_data(DATA_PATH)
+    matches: list[dict[str, Any]] = []
+    for train in data:
+        route = train["route"]
+        if source not in route or destination not in route:
+            continue
+        if route.index(source) >= route.index(destination):
+            continue
+        matches.append({
+            "train_no": train["train_no"],
+            "train_name": train["train_name"],
+            "route": route,
+            "coaches": [c["coach"] for c in train["coaches"]],
+        })
+    return matches
 
 
 # ------------------------------------------------------------------
@@ -244,6 +277,55 @@ def allocate(request: AllocateRequest) -> dict[str, Any]:
         "allocation_type": allocated["allocation_type"],
         "segment":         allocated.get("segment"),
         "candidates_found": len(candidates),
+    }
+
+
+# ------------------------------------------------------------------
+@app.post("/recommendations", tags=["Booking"])
+def recommendations(request: AllocateRequest) -> dict[str, Any]:
+    """Return top seat recommendations and same-train fallback options."""
+    train_no = request.train_no
+    source = request.source
+    destination = request.destination
+
+    try:
+        candidates = allocation_engine.find_valid_berths(
+            train_no, source, destination, DATA_PATH
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    ranked = ml_model.rank_berths(candidates)
+    top_recommendations = []
+    for rec in ranked[:3]:
+        top_recommendations.append({
+            "train_no": rec["train_no"],
+            "coach": rec["coach"],
+            "berth_no": rec["berth_no"],
+            "berth_type": rec["berth_type"],
+            "allocation_type": rec["allocation_type"],
+            "availability_label": "FULL_VACANT" if rec["allocation_type"] == "FULL_VACANT" else "PARTIAL_VACANT",
+            "segment": rec.get("segment"),
+            "ranking_score": rec["ranking_score"],
+        })
+
+    segment_options = []
+    nearby_options = []
+    if not top_recommendations:
+        segment_options = allocation_engine.find_segment_allocation_options(
+            train_no, source, destination, DATA_PATH
+        )
+        nearby_options = allocation_engine.suggest_nearby_destinations(
+            train_no, source, destination, DATA_PATH
+        )
+
+    return {
+        "train_no": train_no,
+        "source": source,
+        "destination": destination,
+        "recommendations": top_recommendations,
+        "segment_allocation_options": segment_options,
+        "nearby_station_options": nearby_options,
     }
 
 

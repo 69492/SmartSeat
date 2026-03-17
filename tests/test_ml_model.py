@@ -68,3 +68,33 @@ def test_get_best_berth_single_candidate():
     ]
     best = ml_model.get_best_berth(candidates)
     assert best == candidates[0]
+
+
+def test_rank_berths_returns_scores():
+    candidates = [
+        {
+            "train_no": "12301",
+            "coach": "S1",
+            "berth_no": 1,
+            "berth_type": "LB",
+            "status": "FULL_VACANT",
+            "allocation_type": "FULL_VACANT",
+            "segment": None,
+            "journey_distance": 6,
+            "route": ["A", "B"],
+        },
+        {
+            "train_no": "12301",
+            "coach": "S3",
+            "berth_no": 60,
+            "berth_type": "SU",
+            "status": "PARTIAL",
+            "allocation_type": "PARTIAL",
+            "segment": {"from": "A", "to": "B", "status": "VACANT"},
+            "journey_distance": 3,
+            "route": ["A", "B"],
+        },
+    ]
+    ranked = ml_model.rank_berths(candidates)
+    assert len(ranked) == 2
+    assert "ranking_score" in ranked[0]

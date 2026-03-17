@@ -171,3 +171,27 @@ def get_best_berth(candidates: list[dict[str, Any]]) -> dict[str, Any]:
     Falls back to candidates[0] if the model is unavailable.
     """
     return _ranker.rank(candidates)
+
+
+def rank_berths(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Return candidates ranked best-to-worst with a ``ranking_score`` field.
+    """
+    if not candidates:
+        return []
+
+    if _ranker._model is None:
+        return [{**candidate, "ranking_score": 0.0} for candidate in candidates]
+
+    feature_matrix = np.array(
+        [_encode_candidate(c) for c in candidates], dtype=float
+    )
+    proba = _ranker._model.predict_proba(feature_matrix)
+    class_1_idx = list(_ranker._model.classes_).index(1) if 1 in _ranker._model.classes_ else 0
+    scores = proba[:, class_1_idx]
+
+    ranked_indices = np.argsort(-scores)
+    return [
+        {**candidates[i], "ranking_score": float(scores[i])}
+        for i in ranked_indices
+    ]
