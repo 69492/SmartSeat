@@ -169,7 +169,9 @@ def test_ui_uses_deployed_backend_for_train_search():
     assert 'firstOption.click();' in html
     assert "item.ranking_score.toFixed(2)" not in html
     assert "Score " not in html
-    assert "<label for=\"train-list\">" in html
+    assert '<label for="train-list"' in html
+    assert 'id="train-list"' in html
+    assert 'class="train-list"' in html
     assert 'id="train-select"' not in html
     assert "Get Seat Recommendations" not in html
 
