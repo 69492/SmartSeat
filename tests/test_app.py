@@ -147,39 +147,53 @@ def test_ui_qr_download_button():
     assert "SmartSeat_Ticket_" in html
 
 
-def test_ui_uses_deployed_backend_for_train_search():
-    """UI should search trains and auto-fetch recommendations after clickable train selection."""
+def test_ui_uses_deployed_backend_for_step_based_booking_flow():
+    """UI should enforce step-based booking flow with session-based previous booking support."""
     response = client.get("/ui")
     assert response.status_code == 200
     html = response.text
+    assert "Find Trains" in html
     assert "Select Train" in html
+    assert "Allocation Result" in html
+    assert "Booking Successful!" in html
     assert 'const API_BASE = "https://smartseat-d91a.onrender.com";' in html
     assert 'fetch(API_BASE + "/trains/search"' in html
     assert 'method: "POST"' in html
     assert 'JSON.stringify({ source: source, destination: dest })' in html
     assert 'fetch(API_BASE + "/recommendations"' in html
+    assert 'fetch(API_BASE + "/book_ticket"' in html
+    assert 'showStep(stepSelectTrain);' in html
+    assert "showStep(resultPanel);" in html
+    assert "showStep(confirmationPanel);" in html
     assert "const trainList" in html
-    assert "const trainSelectionSection" in html
-    assert 'document.getElementById("train-list")' in html
-    assert 'document.getElementById("train-selection-section")' in html
-    assert 'id="train-selection-section" class="form-group" style="display:none' in html
+    assert 'id="step-find-trains" class="card step-section active"' in html
+    assert 'id="step-select-train" class="card step-section"' in html
+    assert 'id="result-panel" class="card step-section"' in html
+    assert 'id="confirmation-panel" class="card step-section"' in html
+    assert 'id="view-previous-btn"' in html
+    assert 'localStorage.setItem(BOOKING_DATA_KEY, JSON.stringify(data));' in html
+    assert 'const BOOKING_DATA_KEY = "bookingData";' in html
+    assert 'const BOOKING_TIME_KEY = "bookingTime";' in html
+    assert "const AUTO_RETURN_WINDOW_MS = 45 * 60 * 1000;" in html
+    assert "const DAY_IN_MS = 24 * 60 * 60 * 1000;" in html
+    assert "applyStoredBookingBehavior();" in html
     assert 'item.className = "train-option";' in html
     assert "t.departure_time" in html
     assert "t.arrival_time" in html
     assert 'item.addEventListener("click", async function () {' in html
     assert 'selectedTrainNo = t.train_no;' in html
     assert "await fetchRecommendations();" in html
-    assert 'trainSelectionSection.style.display = "none";' in html
-    assert 'trainSelectionSection.style.display = "block";' in html
     assert 'div.className = "mini-card recommendation-option";' in html
     assert 'selectedRecommendation = item;' in html
     assert 'firstOption.click();' in html
     assert "item.ranking_score.toFixed(2)" not in html
     assert "Score " not in html
-    assert '<label for="train-list"' in html
+    assert '<label for="train-list">Available Trains</label>' in html
     assert 'id="train-list"' in html
     assert 'class="train-list"' in html
     assert "Find trains first" not in html
+    assert "Select one train card to automatically get top seat recommendations." not in html
+    assert "Top seat recommendations generated." not in html
     assert 'id="train-select"' not in html
     assert "Get Seat Recommendations" not in html
 

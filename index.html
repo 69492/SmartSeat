@@ -193,9 +193,35 @@
     .btn:disabled { opacity: .45; cursor: not-allowed; }
     .btn .btn-icon { width: 18px; height: 18px; flex-shrink: 0; }
 
-    /* ---------- Result panel ---------- */
-    #result-panel {
-      display: none;          /* shown by JS after allocation */
+    .step-section { display: none; }
+    .step-section.active { display: block; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      padding: 16px;
+    }
+    .modal-backdrop.active { display: flex; }
+    .modal-card {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+      padding: 20px;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .modal-actions .btn {
+      margin-top: 0;
     }
 
     .result-table {
@@ -328,12 +354,6 @@
       background-color: #fff;
     }
 
-    /* ---------- Hidden panels ---------- */
-    #passenger-panel,
-    #confirmation-panel {
-      display: none;
-    }
-
     /* ---------- Secondary button ---------- */
     .btn-success {
       background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
@@ -463,8 +483,8 @@
   </header>
 
   <main>
-    <!-- ======================== MAIN CARD ======================== -->
-    <div class="card">
+    <!-- ======================== STEP 1 ======================== -->
+    <div id="step-find-trains" class="card step-section active">
       <h2>
         <svg class="h2-icon" viewBox="0 0 24 24" fill="none" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M15 5v2"/><path d="M15 11v2"/>
@@ -472,24 +492,16 @@
           <path d="M5 5a2 2 0 00-2 2v3a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2H5z"/>
           <path d="M5 12a2 2 0 00-2 2v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 00-2-2H5z"/>
         </svg>
-        Book a Seat
+        Find Trains
       </h2>
 
-      <!-- Alert banners (hidden by default) -->
       <div id="alert-error" class="alert alert-error">
         <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
         </svg>
         <span id="alert-error-text"></span>
       </div>
-      <div id="alert-success" class="alert alert-success">
-        <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-        <span id="alert-success-text"></span>
-      </div>
 
-      <!-- Source station -->
       <div class="form-group">
         <label for="source-select">
           <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -502,7 +514,6 @@
         </select>
       </div>
 
-      <!-- Destination station -->
       <div class="form-group">
         <label for="dest-select">
           <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -522,23 +533,30 @@
         Find Trains
       </button>
 
-      <!-- Train selection -->
-      <div id="train-selection-section" class="form-group" style="display:none;margin-top:14px">
-        <label for="train-list">
-          <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="21" r="1"/><circle cx="16" cy="21" r="1"/><path d="M8 17v3h8v-3"/>
-          </svg>
-          Select Train
-        </label>
-        <div id="train-list" class="train-list"></div>
-      </div>
+      <button id="view-previous-btn" class="btn btn-primary" style="display:none;margin-top:12px">
+        View Previous Booking
+      </button>
 
-      <!-- Loading spinner -->
       <div id="spinner" class="spinner"></div>
     </div>
 
-    <!-- ======================== RESULT CARD ======================== -->
-    <div id="result-panel" class="card">
+    <!-- ======================== STEP 2 ======================== -->
+    <div id="step-select-train" class="card step-section">
+      <h2>
+        <svg class="h2-icon" viewBox="0 0 24 24" fill="none" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="21" r="1"/><circle cx="16" cy="21" r="1"/><path d="M8 17v3h8v-3"/>
+        </svg>
+        Select Train
+      </h2>
+
+      <div id="train-selection-section" class="form-group">
+        <label for="train-list">Available Trains</label>
+        <div id="train-list" class="train-list"></div>
+      </div>
+    </div>
+
+    <!-- ======================== STEP 3 ======================== -->
+    <div id="result-panel" class="card step-section">
       <h2>
         <svg class="h2-icon" viewBox="0 0 24 24" fill="none" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
@@ -561,16 +579,6 @@
         <div id="recommendations-list"></div>
       </div>
 
-      <div id="segment-options-wrap" style="display:none">
-        <h3 style="font-size:1rem;margin:10px 0">Segment Allocation Options</h3>
-        <div id="segment-options-list"></div>
-      </div>
-
-      <div id="nearby-options-wrap" style="display:none">
-        <h3 style="font-size:1rem;margin:10px 0">Nearby Reachable Stations</h3>
-        <div id="nearby-options-list"></div>
-      </div>
-
       <!-- Proceed to Payment button -->
       <button id="proceed-btn" class="btn btn-amber" style="margin-top:16px">
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -580,76 +588,27 @@
       </button>
     </div>
 
-    <!-- ======================== PASSENGER FORM ======================== -->
-    <div id="passenger-panel" class="card">
-      <h2>
-        <svg class="h2-icon" viewBox="0 0 24 24" fill="none" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
-        </svg>
-        Passenger Details
-      </h2>
-
-      <div id="alert-passenger-error" class="alert alert-error">
-        <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-        </svg>
-        <span id="alert-passenger-error-text"></span>
-      </div>
-
-      <div class="form-group">
-        <label for="pax-name">
-          <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
-          </svg>
-          Full Name
-        </label>
-        <input type="text" id="pax-name" placeholder="Enter passenger name" />
-      </div>
-
-      <div class="form-group">
-        <label for="pax-age">
-          <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-          </svg>
-          Age
-        </label>
-        <input type="number" id="pax-age" placeholder="Enter age" min="1" max="120" />
-      </div>
-
-      <button id="pay-btn" class="btn btn-success">
-        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-        Pay &amp; Confirm Booking
-      </button>
-
-      <div id="pay-spinner" class="spinner"></div>
-    </div>
-
-    <!-- ======================== CONFIRMATION CARD ======================== -->
-    <div id="confirmation-panel" class="card">
+    <!-- ======================== STEP 4 ======================== -->
+    <div id="confirmation-panel" class="card step-section">
       <div class="confirm-header">
         <svg class="checkmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
         </svg>
         <h3>Booking Successful!</h3>
-        <p>Your ticket has been confirmed</p>
+        <p id="conf-restore-note" style="display:none" aria-live="polite" role="status"></p>
       </div>
 
       <table class="result-table">
-        <tr><th>Ticket ID</th>      <td id="conf-ticket-id"></td></tr>
-        <tr><th>Status</th>         <td id="conf-status"></td></tr>
+        <tr><th>Booking ID</th>      <td id="conf-ticket-id"></td></tr>
         <tr><th>Passenger</th>      <td id="conf-name"></td></tr>
-        <tr><th>Age</th>            <td id="conf-age"></td></tr>
         <tr><th>Train</th>          <td id="conf-train"></td></tr>
+        <tr><th>Journey</th>        <td id="conf-journey"></td></tr>
         <tr><th>Coach</th>          <td id="conf-coach"></td></tr>
         <tr><th>Berth No.</th>      <td id="conf-berth"></td></tr>
         <tr><th>Berth Type</th>     <td id="conf-type"></td></tr>
         <tr><th>Allocation</th>     <td id="conf-alloc"></td></tr>
-        <tr><th>Journey</th>        <td id="conf-journey"></td></tr>
         <tr><th>Price</th>          <td id="conf-price"></td></tr>
         <tr><th>Booking Time</th>   <td id="conf-time"></td></tr>
-        <tr><th>Validity</th>       <td id="conf-validity"></td></tr>
       </table>
 
       <div class="qr-wrapper" id="conf-qr-wrapper" style="display:none">
@@ -672,6 +631,24 @@
     </div>
   </main>
 
+  <div id="passenger-modal" class="modal-backdrop" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="passenger-modal-title">
+    <div class="modal-card">
+      <h2 id="passenger-modal-title" style="font-size:1.05rem;margin-bottom:12px;color:#1e3a5f">Passenger Details</h2>
+      <div class="form-group">
+        <label for="pax-name-modal">Full Name</label>
+        <input type="text" id="pax-name-modal" placeholder="Enter passenger name" />
+      </div>
+      <div class="form-group">
+        <label for="pax-age-modal">Age</label>
+        <input type="number" id="pax-age-modal" min="1" max="120" placeholder="Enter age" />
+      </div>
+      <div class="modal-actions">
+        <button id="cancel-passenger-btn" class="btn btn-primary" type="button">Cancel</button>
+        <button id="confirm-passenger-btn" class="btn btn-success" type="button">Confirm Booking</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ======================== FOOTER ======================== -->
   <footer>
     &copy; 2026 SmartSeat &mdash; Dynamic Train Seat Allocation System
@@ -691,6 +668,8 @@
     const API_BASE = "https://smartseat-d91a.onrender.com";
 
     /* ----- DOM references ----- */
+    const stepFindTrains = document.getElementById("step-find-trains");
+    const stepSelectTrain = document.getElementById("step-select-train");
     const trainList    = document.getElementById("train-list");
     const trainSelectionSection = document.getElementById("train-selection-section");
     const sourceSelect = document.getElementById("source-select");
@@ -699,21 +678,20 @@
     const spinner      = document.getElementById("spinner");
     const resultPanel  = document.getElementById("result-panel");
     const alertError   = document.getElementById("alert-error");
-    const alertSuccess = document.getElementById("alert-success");
+    const viewPreviousBtn = document.getElementById("view-previous-btn");
 
     /* Booking flow panels */
     const proceedBtn        = document.getElementById("proceed-btn");
-    const passengerPanel    = document.getElementById("passenger-panel");
-    const payBtn            = document.getElementById("pay-btn");
-    const paySpinner        = document.getElementById("pay-spinner");
     const confirmationPanel = document.getElementById("confirmation-panel");
     const newBookingBtn     = document.getElementById("new-booking-btn");
     const recommendationsWrap = document.getElementById("recommendations-wrap");
     const recommendationsList = document.getElementById("recommendations-list");
-    const segmentOptionsWrap = document.getElementById("segment-options-wrap");
-    const segmentOptionsList = document.getElementById("segment-options-list");
-    const nearbyOptionsWrap = document.getElementById("nearby-options-wrap");
-    const nearbyOptionsList = document.getElementById("nearby-options-list");
+    const passengerModal = document.getElementById("passenger-modal");
+    const paxNameModal = document.getElementById("pax-name-modal");
+    const paxAgeModal = document.getElementById("pax-age-modal");
+    const cancelPassengerBtn = document.getElementById("cancel-passenger-btn");
+    const confirmPassengerBtn = document.getElementById("confirm-passenger-btn");
+    const passengerModalCard = passengerModal.querySelector(".modal-card");
 
     /* ----- State ----- */
     let trainsData = [];   // cached list from GET /trains
@@ -721,6 +699,14 @@
     let selectedTrainNo = "";
     let selectedRecommendation = null;
     let lastAllocation = null;  // last allocation result for booking
+    let latestBookingData = null;
+    let modalTriggerElement = null;
+
+    const BOOKING_DATA_KEY = "bookingData";
+    const BOOKING_TIME_KEY = "bookingTime";
+    const DAY_IN_MS = 24 * 60 * 60 * 1000;
+    // Returning within this window auto-opens the recent booking confirmation.
+    const AUTO_RETURN_WINDOW_MS = 45 * 60 * 1000;
 
     /* =================================================================
      * HELPERS
@@ -728,22 +714,145 @@
 
     /** Show an error alert */
     function showError(msg) {
-      alertSuccess.classList.remove("visible");
       document.getElementById("alert-error-text").textContent = msg;
       alertError.classList.add("visible");
-    }
-
-    /** Show a success alert */
-    function showSuccess(msg) {
-      alertError.classList.remove("visible");
-      document.getElementById("alert-success-text").textContent = msg;
-      alertSuccess.classList.add("visible");
     }
 
     /** Hide all alerts */
     function hideAlerts() {
       alertError.classList.remove("visible");
-      alertSuccess.classList.remove("visible");
+    }
+
+    function showStep(stepElement) {
+      [stepFindTrains, stepSelectTrain, resultPanel, confirmationPanel].forEach(function (el) {
+        if (!el) return;
+        el.classList.remove("active");
+      });
+      if (stepElement) {
+        stepElement.classList.add("active");
+      }
+    }
+
+    function saveBooking(data) {
+      localStorage.setItem(BOOKING_DATA_KEY, JSON.stringify(data));
+      localStorage.setItem(BOOKING_TIME_KEY, Date.now().toString());
+    }
+
+    function clearStoredBooking() {
+      localStorage.removeItem(BOOKING_DATA_KEY);
+      localStorage.removeItem(BOOKING_TIME_KEY);
+    }
+
+    function getStoredBooking() {
+      const bookingJson = localStorage.getItem(BOOKING_DATA_KEY);
+      const bookingTimeRaw = localStorage.getItem(BOOKING_TIME_KEY);
+      if (!bookingJson || !bookingTimeRaw) {
+        return null;
+      }
+      const bookingTime = parseInt(bookingTimeRaw, 10);
+      if (isNaN(bookingTime)) {
+        clearStoredBooking();
+        return null;
+      }
+      const ageMs = Date.now() - bookingTime;
+      if (ageMs >= DAY_IN_MS) {
+        clearStoredBooking();
+        return null;
+      }
+      try {
+        return {
+          data: JSON.parse(bookingJson),
+          time: bookingTime,
+          ageMs: ageMs,
+        };
+      } catch (err) {
+        clearStoredBooking();
+        return null;
+      }
+    }
+
+    function renderBookingConfirmation(data, options) {
+      latestBookingData = data;
+      document.getElementById("conf-ticket-id").textContent = data.ticket_id;
+      document.getElementById("conf-name").textContent      = data.name;
+      document.getElementById("conf-train").textContent     = data.seat_details.train_no;
+      document.getElementById("conf-coach").textContent     = data.seat_details.coach;
+      document.getElementById("conf-berth").textContent     = data.seat_details.berth_no;
+      document.getElementById("conf-type").innerHTML        = '<span class="badge badge-blue">' + data.seat_details.berth_type + '</span>';
+      document.getElementById("conf-alloc").innerHTML       = '<span class="badge badge-green">' + data.seat_details.allocation_type + '</span>';
+      document.getElementById("conf-journey").textContent   = data.source + "  →  " + data.destination;
+      document.getElementById("conf-price").textContent     = "₹" + data.price;
+      document.getElementById("conf-time").textContent      = data.booking_time;
+      const restoreNote = document.getElementById("conf-restore-note");
+      if (options && options.restoreMessage) {
+        restoreNote.textContent = options.restoreMessage;
+        restoreNote.style.display = "block";
+      } else {
+        restoreNote.textContent = "";
+        restoreNote.style.display = "none";
+      }
+
+      const confQr = document.getElementById("conf-qr-wrapper");
+      if (data.qr_url) {
+        document.getElementById("conf-qr-img").src = API_BASE + data.qr_url;
+        document.getElementById("download-qr-btn").dataset.ticketId = data.ticket_id || "";
+        confQr.style.display = "block";
+      } else {
+        confQr.style.display = "none";
+      }
+    }
+
+    function resetForNewBooking() {
+      hideAlerts();
+      lastAllocation = null;
+      selectedRecommendation = null;
+      selectedTrainNo = "";
+      matchedTrains = [];
+      trainList.innerHTML = "";
+      recommendationsList.innerHTML = "";
+      recommendationsWrap.style.display = "none";
+      document.getElementById("res-train").textContent = "";
+      document.getElementById("res-coach").textContent = "";
+      document.getElementById("res-berth").textContent = "";
+      document.getElementById("res-type").textContent = "";
+      document.getElementById("res-alloc").textContent = "";
+      document.getElementById("res-segment").textContent = "";
+      document.getElementById("res-journey").textContent = "";
+      proceedBtn.disabled = false;
+      showStep(stepFindTrains);
+    }
+
+    function applyStoredBookingBehavior() {
+      const stored = getStoredBooking();
+      if (!stored) {
+        viewPreviousBtn.style.display = "none";
+        return;
+      }
+      const restoreMessage = stored.ageMs <= AUTO_RETURN_WINDOW_MS
+        ? "Showing your recent booking from this session."
+        : "";
+      renderBookingConfirmation(stored.data, { restoreMessage: restoreMessage });
+      viewPreviousBtn.style.display = "inline-flex";
+      if (stored.ageMs <= AUTO_RETURN_WINDOW_MS) {
+        showStep(confirmationPanel);
+      } else {
+        showStep(stepFindTrains);
+      }
+    }
+
+    function openPassengerModal() {
+      modalTriggerElement = document.activeElement;
+      passengerModal.classList.add("active");
+      passengerModal.setAttribute("aria-hidden", "false");
+      paxNameModal.focus();
+    }
+
+    function closePassengerModal() {
+      passengerModal.classList.remove("active");
+      passengerModal.setAttribute("aria-hidden", "true");
+      const restoreTarget = modalTriggerElement || proceedBtn;
+      restoreTarget.focus();
+      modalTriggerElement = null;
     }
 
     /** Populate a <select> with an array of station names */
@@ -780,7 +889,7 @@
         populateStationDropdown(sourceSelect, stations, "— Select source —");
         populateStationDropdown(destSelect, stations, "— Select destination —");
       } catch (err) {
-        showError("Unable to fetch train list. Is the backend running?");
+        showError("Unable to fetch train list.");
       }
     }
 
@@ -790,15 +899,9 @@
 
     findTrainsBtn.addEventListener("click", async function () {
       hideAlerts();
-      resultPanel.style.display = "none";
-      passengerPanel.style.display = "none";
-      confirmationPanel.style.display = "none";
       trainList.innerHTML = "";
-      trainSelectionSection.style.display = "none";
       recommendationsWrap.style.display = "none";
-      segmentOptionsWrap.style.display = "none";
-      nearbyOptionsWrap.style.display = "none";
-      proceedBtn.style.display = "inline-flex";
+      proceedBtn.disabled = false;
       lastAllocation = null;
       selectedRecommendation = null;
 
@@ -842,20 +945,20 @@
             });
             item.classList.add("selected");
             selectedTrainNo = t.train_no;
+            showStep(resultPanel);
             await fetchRecommendations();
           });
           trainList.appendChild(item);
         });
         if (!matchedTrains.length) {
-          trainSelectionSection.style.display = "none";
           showError("No trains found between selected stations.");
+          showStep(stepFindTrains);
         } else {
-          trainSelectionSection.style.display = "block";
-          showSuccess("Select one train card to automatically get top seat recommendations.");
+          showStep(stepSelectTrain);
         }
       } catch (err) {
-        trainSelectionSection.style.display = "none";
         showError("Unable to search trains for selected stations.");
+        showStep(stepFindTrains);
       }
     });
 
@@ -901,45 +1004,14 @@
       recommendationsWrap.style.display = items.length ? "block" : "none";
     }
 
-    function renderSegmentOptions(items) {
-      segmentOptionsList.innerHTML = "";
-      items.forEach(function (option) {
-        const segmentsText = option.segments.map(function (leg) {
-          return leg.from + " → " + leg.to + " : " + leg.coach + "-" + leg.berth_no;
-        }).join(" | ");
-        const div = document.createElement("div");
-        div.className = "mini-card";
-        div.textContent = segmentsText;
-        segmentOptionsList.appendChild(div);
-      });
-      segmentOptionsWrap.style.display = items.length ? "block" : "none";
-    }
-
-    function renderNearbyOptions(items) {
-      nearbyOptionsList.innerHTML = "";
-      items.forEach(function (item) {
-        const div = document.createElement("div");
-        div.className = "mini-card";
-        const stopWord = item.distance_from_requested_stop === 1 ? "stop" : "stops";
-        div.textContent = item.station + " (" + item.direction + ", " + item.distance_from_requested_stop + " " + stopWord + " away)";
-        nearbyOptionsList.appendChild(div);
-      });
-      nearbyOptionsWrap.style.display = items.length ? "block" : "none";
-    }
-
     /* =================================================================
      * GET RECOMMENDATIONS  (POST /recommendations)
      * ================================================================= */
 
     async function fetchRecommendations() {
       hideAlerts();
-      resultPanel.style.display = "none";
-      passengerPanel.style.display = "none";
-      confirmationPanel.style.display = "none";
       recommendationsWrap.style.display = "none";
-      segmentOptionsWrap.style.display = "none";
-      nearbyOptionsWrap.style.display = "none";
-      proceedBtn.style.display = "inline-flex";
+      proceedBtn.disabled = false;
       lastAllocation = null;
       selectedRecommendation = null;
 
@@ -985,82 +1057,62 @@
         }
 
         renderRecommendationList(data.recommendations || []);
-        renderSegmentOptions(data.segment_allocation_options || []);
-        renderNearbyOptions(data.nearby_station_options || []);
-
         if ((data.recommendations || []).length > 0) {
-          showSuccess("Top seat recommendations generated.");
-          proceedBtn.style.display = "inline-flex";
-
           document.getElementById("res-train").textContent   = data.train_no;
           document.getElementById("res-journey").textContent = data.source + "  →  " + data.destination;
-
-          resultPanel.style.display = "block";
+          showStep(resultPanel);
         } else {
-          showError("No direct berth for full journey. Showing segment and nearby options.");
-          proceedBtn.style.display = "none";
-          resultPanel.style.display = "block";
+          showError("No direct berth found.");
+          proceedBtn.disabled = true;
+          showStep(resultPanel);
         }
 
       } catch (err) {
         showError("Network error — could not reach the backend.");
+        showStep(stepFindTrains);
       } finally {
         spinner.style.display = "none";
       }
     }
 
     /* =================================================================
-     * PROCEED TO PAYMENT — show passenger form
+     * PROCEED TO PAYMENT — book with selected recommendation
      * ================================================================= */
 
     proceedBtn.addEventListener("click", function () {
-      passengerPanel.style.display = "block";
-      passengerPanel.scrollIntoView({ behavior: "smooth" });
+      if (!lastAllocation || !selectedTrainNo) return;
+      hideAlerts();
+      openPassengerModal();
     });
 
-    /* =================================================================
-     * PAY & CONFIRM  (POST /book_ticket)
-     * ================================================================= */
-
-    payBtn.addEventListener("click", async function () {
-      /* Hide previous passenger errors */
-      document.getElementById("alert-passenger-error").classList.remove("visible");
-
-      const paxName  = document.getElementById("pax-name").value.trim();
-      const paxAge   = document.getElementById("pax-age").value.trim();
-
-      /* Validate */
+    confirmPassengerBtn.addEventListener("click", async function () {
+      const paxName = paxNameModal.value.trim();
+      const paxAge = parseInt(paxAgeModal.value, 10);
       if (!paxName) {
-        document.getElementById("alert-passenger-error-text").textContent = "Please enter passenger name.";
-        document.getElementById("alert-passenger-error").classList.add("visible");
+        showError("Please enter passenger name.");
+        paxNameModal.focus();
         return;
       }
-      if (!paxAge || isNaN(paxAge) || parseInt(paxAge) < 1 || parseInt(paxAge) > 120) {
-        document.getElementById("alert-passenger-error-text").textContent = "Please enter a valid age (1–120).";
-        document.getElementById("alert-passenger-error").classList.add("visible");
+      if (isNaN(paxAge) || paxAge < 1 || paxAge > 120) {
+        showError("Please enter a valid age (1–120).");
+        paxAgeModal.focus();
         return;
       }
-
-      paySpinner.style.display = "block";
-      payBtn.disabled = true;
-
+      closePassengerModal();
+      spinner.style.display = "block";
+      proceedBtn.disabled = true;
       try {
-        /* Build request body with pre-allocated seat details */
         const bookingBody = {
           train_no: selectedTrainNo,
           from:     sourceSelect.value,
           to:       destSelect.value,
           name:     paxName,
-          age:      parseInt(paxAge),
+          age:      paxAge,
+          coach:           lastAllocation.coach,
+          berth_no:        lastAllocation.berth_no,
+          berth_type:      lastAllocation.berth_type,
+          allocation_type: lastAllocation.allocation_type,
         };
-
-        /* Pass pre-allocated seat info to avoid double allocation */
-        if (lastAllocation) {
-          bookingBody.coach           = lastAllocation.coach;
-          bookingBody.berth_no        = lastAllocation.berth_no;
-          bookingBody.berth_type      = lastAllocation.berth_type;
-          bookingBody.allocation_type = lastAllocation.allocation_type;
-        }
 
         const res = await fetch(API_BASE + "/book_ticket", {
           method: "POST",
@@ -1070,48 +1122,49 @@
 
         const data = await res.json();
 
-        if (!res.ok) {
-          document.getElementById("alert-passenger-error-text").textContent = data.detail || "Booking failed.";
-          document.getElementById("alert-passenger-error").classList.add("visible");
+        if (!res.ok || !data || !data.seat_details) {
+          showError((data && data.detail) || "Booking failed.");
+          showStep(resultPanel);
           return;
         }
 
-        /* Hide other panels, show confirmation */
-        resultPanel.style.display    = "none";
-        passengerPanel.style.display = "none";
+        renderBookingConfirmation(data);
+        saveBooking(data);
+        viewPreviousBtn.style.display = "inline-flex";
         hideAlerts();
-
-        document.getElementById("conf-ticket-id").textContent = data.ticket_id;
-        document.getElementById("conf-status").innerHTML      = '<span class="badge badge-green">' + data.status + '</span>';
-        document.getElementById("conf-name").textContent      = data.name;
-        document.getElementById("conf-age").textContent       = data.age;
-        document.getElementById("conf-train").textContent     = data.seat_details.train_no;
-        document.getElementById("conf-coach").textContent     = data.seat_details.coach;
-        document.getElementById("conf-berth").textContent     = data.seat_details.berth_no;
-        document.getElementById("conf-type").innerHTML        = '<span class="badge badge-blue">' + data.seat_details.berth_type + '</span>';
-        document.getElementById("conf-alloc").innerHTML       = '<span class="badge badge-green">' + data.seat_details.allocation_type + '</span>';
-        document.getElementById("conf-journey").textContent   = data.source + "  →  " + data.destination;
-        document.getElementById("conf-price").textContent     = "₹" + data.price;
-        document.getElementById("conf-time").textContent      = data.booking_time;
-        document.getElementById("conf-validity").textContent  = data.validity;
-
-        const confQr = document.getElementById("conf-qr-wrapper");
-        if (data.qr_url) {
-          document.getElementById("conf-qr-img").src = API_BASE + data.qr_url;
-          document.getElementById("download-qr-btn").dataset.ticketId = data.ticket_id || "";
-          confQr.style.display = "block";
-        } else {
-          confQr.style.display = "none";
-        }
-
-        confirmationPanel.style.display = "block";
+        showStep(confirmationPanel);
         confirmationPanel.scrollIntoView({ behavior: "smooth" });
       } catch (err) {
-        document.getElementById("alert-passenger-error-text").textContent = "Network error — could not reach the backend.";
-        document.getElementById("alert-passenger-error").classList.add("visible");
+        showError("Network error — could not reach the backend.");
+        showStep(resultPanel);
       } finally {
-        paySpinner.style.display = "none";
-        payBtn.disabled = false;
+        spinner.style.display = "none";
+        proceedBtn.disabled = false;
+      }
+    });
+
+    cancelPassengerBtn.addEventListener("click", function () {
+      closePassengerModal();
+    });
+
+    passengerModal.addEventListener("keydown", function (event) {
+      if (!passengerModal.classList.contains("active")) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closePassengerModal();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusables = passengerModalCard.querySelectorAll("button, input, select, textarea, [tabindex]:not([tabindex='-1'])");
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     });
 
@@ -1120,19 +1173,21 @@
      * ================================================================= */
 
     newBookingBtn.addEventListener("click", function () {
-      confirmationPanel.style.display = "none";
-      resultPanel.style.display       = "none";
-      passengerPanel.style.display    = "none";
-      hideAlerts();
-      lastAllocation = null;
-      selectedRecommendation = null;
-      proceedBtn.style.display = "inline-flex";
-      document.getElementById("pax-name").value  = "";
-      document.getElementById("pax-age").value   = "";
-      selectedTrainNo = "";
-      trainList.innerHTML = "";
-      trainSelectionSection.style.display = "none";
+      resetForNewBooking();
       window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    viewPreviousBtn.addEventListener("click", function () {
+      const previousBookingMessage = "Showing your previously saved booking.";
+      if (latestBookingData) {
+        renderBookingConfirmation(latestBookingData, { restoreMessage: previousBookingMessage });
+      } else {
+        const stored = getStoredBooking();
+        if (!stored) return;
+        renderBookingConfirmation(stored.data, { restoreMessage: previousBookingMessage });
+      }
+      showStep(confirmationPanel);
+      confirmationPanel.scrollIntoView({ behavior: "smooth" });
     });
 
     /* =================================================================
@@ -1164,6 +1219,7 @@
     /* =================================================================
      * INITIALISE — load trains on page ready
      * ================================================================= */
+    applyStoredBookingBehavior();
     fetchTrains();
   </script>
 
