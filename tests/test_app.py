@@ -152,6 +152,7 @@ def test_ui_uses_deployed_backend_for_train_search():
     response = client.get("/ui")
     assert response.status_code == 200
     html = response.text
+    assert "Select Train" in html
     assert 'const API_BASE = "https://smartseat-d91a.onrender.com";' in html
     assert 'fetch(API_BASE + "/trains/search"' in html
     assert 'method: "POST"' in html
@@ -168,6 +169,9 @@ def test_ui_uses_deployed_backend_for_train_search():
     assert 'firstOption.click();' in html
     assert "item.ranking_score.toFixed(2)" not in html
     assert "Score " not in html
+    assert '<label for="train-list"' in html
+    assert 'id="train-list"' in html
+    assert 'class="train-list"' in html
     assert 'id="train-select"' not in html
     assert "Get Seat Recommendations" not in html
 
