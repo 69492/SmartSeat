@@ -523,16 +523,14 @@
       </button>
 
       <!-- Train selection -->
-      <div class="form-group">
+      <div id="train-selection-section" class="form-group" style="display:none;margin-top:14px">
         <label for="train-list">
           <svg class="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="4" y="3" width="16" height="14" rx="2"/><path d="M4 11h16"/><path d="M12 3v8"/><circle cx="8" cy="21" r="1"/><circle cx="16" cy="21" r="1"/><path d="M8 17v3h8v-3"/>
           </svg>
           Select Train
         </label>
-        <div id="train-list" class="train-list">
-          <div class="mini-card">— Find trains for this route first —</div>
-        </div>
+        <div id="train-list" class="train-list"></div>
       </div>
 
       <!-- Loading spinner -->
@@ -694,6 +692,7 @@
 
     /* ----- DOM references ----- */
     const trainList    = document.getElementById("train-list");
+    const trainSelectionSection = document.getElementById("train-selection-section");
     const sourceSelect = document.getElementById("source-select");
     const destSelect   = document.getElementById("dest-select");
     const findTrainsBtn = document.getElementById("find-trains-btn");
@@ -794,6 +793,8 @@
       resultPanel.style.display = "none";
       passengerPanel.style.display = "none";
       confirmationPanel.style.display = "none";
+      trainSelectionSection.style.display = "none";
+      trainList.innerHTML = "";
       recommendationsWrap.style.display = "none";
       segmentOptionsWrap.style.display = "none";
       nearbyOptionsWrap.style.display = "none";
@@ -826,7 +827,14 @@
           const item = document.createElement("button");
           item.type = "button";
           item.className = "train-option";
-          item.textContent = t.train_no + " — " + t.train_name;
+          let trainCardText = t.train_no + " — " + t.train_name;
+          if (t.departure_time) {
+            trainCardText += " • Dep: " + t.departure_time;
+          }
+          if (t.arrival_time) {
+            trainCardText += " • Arr: " + t.arrival_time;
+          }
+          item.textContent = trainCardText;
           item.dataset.trainNo = t.train_no;
           item.addEventListener("click", async function () {
             Array.from(trainList.querySelectorAll(".train-option")).forEach(function (btn) {
@@ -839,12 +847,14 @@
           trainList.appendChild(item);
         });
         if (!matchedTrains.length) {
-          trainList.innerHTML = '<div class="mini-card">— No trains available for this station pair —</div>';
+          trainSelectionSection.style.display = "none";
           showError("No trains found between selected stations.");
         } else {
+          trainSelectionSection.style.display = "block";
           showSuccess("Select one train card to automatically get top seat recommendations.");
         }
       } catch (err) {
+        trainSelectionSection.style.display = "none";
         showError("Unable to search trains for selected stations.");
       }
     });
@@ -1120,6 +1130,8 @@
       document.getElementById("pax-name").value  = "";
       document.getElementById("pax-age").value   = "";
       selectedTrainNo = "";
+      trainSelectionSection.style.display = "none";
+      trainList.innerHTML = "";
       Array.from(trainList.querySelectorAll(".train-option")).forEach(function (btn) {
         btn.classList.remove("selected");
       });
