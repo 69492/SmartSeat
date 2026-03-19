@@ -159,11 +159,18 @@ def test_ui_uses_deployed_backend_for_train_search():
     assert 'JSON.stringify({ source: source, destination: dest })' in html
     assert 'fetch(API_BASE + "/recommendations"' in html
     assert "const trainList" in html
+    assert "const trainSelectionSection" in html
     assert 'document.getElementById("train-list")' in html
+    assert 'document.getElementById("train-selection-section")' in html
+    assert 'id="train-selection-section" class="form-group" style="display:none' in html
     assert 'item.className = "train-option";' in html
+    assert "t.departure_time" in html
+    assert "t.arrival_time" in html
     assert 'item.addEventListener("click", async function () {' in html
     assert 'selectedTrainNo = t.train_no;' in html
     assert "await fetchRecommendations();" in html
+    assert 'trainSelectionSection.style.display = "none";' in html
+    assert 'trainSelectionSection.style.display = "block";' in html
     assert 'div.className = "mini-card recommendation-option";' in html
     assert 'selectedRecommendation = item;' in html
     assert 'firstOption.click();' in html
@@ -172,6 +179,7 @@ def test_ui_uses_deployed_backend_for_train_search():
     assert '<label for="train-list"' in html
     assert 'id="train-list"' in html
     assert 'class="train-list"' in html
+    assert "Find trains first" not in html
     assert 'id="train-select"' not in html
     assert "Get Seat Recommendations" not in html
 
