@@ -304,6 +304,34 @@
       background-color: #eff6ff;
       box-shadow: 0 0 0 3px rgba(37,99,235,.12);
     }
+    .booking-list {
+      display: grid;
+      gap: 12px;
+    }
+    .booking-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 14px;
+    }
+    .booking-card h3 {
+      font-size: .97rem;
+      color: #1e3a5f;
+      margin-bottom: 8px;
+    }
+    .booking-card p {
+      font-size: .87rem;
+      color: #334155;
+      margin-bottom: 5px;
+      line-height: 1.45;
+    }
+    .booking-card p:last-child { margin-bottom: 0; }
+    .booking-empty {
+      font-size: .9rem;
+      color: #64748b;
+      text-align: center;
+      padding: 8px 0 2px;
+    }
 
     /* ---------- QR code image ---------- */
     .qr-wrapper {
@@ -534,7 +562,7 @@
       </button>
 
       <button id="view-previous-btn" class="btn btn-primary" style="display:none;margin-top:12px">
-        View Previous Booking
+        Previous Bookings
       </button>
 
       <div id="spinner" class="spinner"></div>
@@ -629,6 +657,18 @@
         New Booking
       </button>
     </div>
+
+    <div id="previous-bookings-panel" class="card step-section">
+      <h2>
+        <svg class="h2-icon" viewBox="0 0 24 24" fill="none" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/>
+        </svg>
+        Previous Bookings
+      </h2>
+      <div id="previous-bookings-empty" class="booking-empty" style="display:none">No recent bookings found.</div>
+      <div id="previous-bookings-list" class="booking-list"></div>
+      <button id="close-previous-btn" class="btn btn-primary" style="margin-top:14px">Close</button>
+    </div>
   </main>
 
   <div id="passenger-modal" class="modal-backdrop" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="passenger-modal-title">
@@ -679,6 +719,10 @@
     const resultPanel  = document.getElementById("result-panel");
     const alertError   = document.getElementById("alert-error");
     const viewPreviousBtn = document.getElementById("view-previous-btn");
+    const previousBookingsPanel = document.getElementById("previous-bookings-panel");
+    const previousBookingsList = document.getElementById("previous-bookings-list");
+    const previousBookingsEmpty = document.getElementById("previous-bookings-empty");
+    const closePreviousBtn = document.getElementById("close-previous-btn");
 
     /* Booking flow panels */
     const proceedBtn        = document.getElementById("proceed-btn");
@@ -702,11 +746,8 @@
     let latestBookingData = null;
     let modalTriggerElement = null;
 
-    const BOOKING_DATA_KEY = "bookingData";
-    const BOOKING_TIME_KEY = "bookingTime";
-    const DAY_IN_MS = 24 * 60 * 60 * 1000;
-    // Returning within this window auto-opens the recent booking confirmation.
-    const AUTO_RETURN_WINDOW_MS = 45 * 60 * 1000;
+    const BOOKING_STORAGE_KEY = "smartseat_bookings";
+    const BOOKING_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 
     /* =================================================================
      * HELPERS
@@ -724,7 +765,7 @@
     }
 
     function showStep(stepElement) {
-      [stepFindTrains, stepSelectTrain, resultPanel, confirmationPanel].forEach(function (el) {
+      [stepFindTrains, stepSelectTrain, resultPanel, confirmationPanel, previousBookingsPanel].forEach(function (el) {
         if (!el) return;
         el.classList.remove("active");
       });
@@ -733,48 +774,91 @@
       }
     }
 
-    function saveBooking(data) {
-      localStorage.setItem(BOOKING_DATA_KEY, JSON.stringify(data));
-      localStorage.setItem(BOOKING_TIME_KEY, Date.now().toString());
-    }
-
-    function clearStoredBooking() {
-      localStorage.removeItem(BOOKING_DATA_KEY);
-      localStorage.removeItem(BOOKING_TIME_KEY);
-    }
-
-    function getStoredBooking() {
-      const bookingJson = localStorage.getItem(BOOKING_DATA_KEY);
-      const bookingTimeRaw = localStorage.getItem(BOOKING_TIME_KEY);
-      if (!bookingJson || !bookingTimeRaw) {
-        return null;
-      }
-      const bookingTime = parseInt(bookingTimeRaw, 10);
-      if (isNaN(bookingTime)) {
-        clearStoredBooking();
-        return null;
-      }
-      const ageMs = Date.now() - bookingTime;
-      if (ageMs >= DAY_IN_MS) {
-        clearStoredBooking();
-        return null;
-      }
+    function readBookingsFromStorage() {
+      const raw = localStorage.getItem(BOOKING_STORAGE_KEY);
+      if (!raw) return [];
       try {
-        return {
-          data: JSON.parse(bookingJson),
-          time: bookingTime,
-          ageMs: ageMs,
-        };
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
       } catch (err) {
-        clearStoredBooking();
-        return null;
+        return [];
       }
+    }
+
+    function writeBookingsToStorage(bookings) {
+      if (!bookings.length) {
+        localStorage.removeItem(BOOKING_STORAGE_KEY);
+        return;
+      }
+      localStorage.setItem(BOOKING_STORAGE_KEY, JSON.stringify(bookings));
+    }
+
+    function cleanupExpiredBookings() {
+      const now = Date.now();
+      const validBookings = readBookingsFromStorage().filter(function (booking) {
+        return booking && typeof booking.timestamp === "number" && (now - booking.timestamp) < BOOKING_MAX_AGE_MS;
+      });
+      writeBookingsToStorage(validBookings);
+      return validBookings;
+    }
+
+    function saveBooking(data) {
+      const bookings = cleanupExpiredBookings();
+      bookings.push({
+        ticket_id: data.ticket_id,
+        passenger_name: data.name,
+        age: data.age,
+        train_no: data.seat_details.train_no,
+        coach: data.seat_details.coach,
+        berth_no: data.seat_details.berth_no,
+        berth_type: data.seat_details.berth_type,
+        source: data.source,
+        destination: data.destination,
+        price: data.price,
+        timestamp: Date.now(),
+      });
+      writeBookingsToStorage(bookings);
+    }
+
+    function updatePreviousBookingsButton() {
+      const bookings = cleanupExpiredBookings();
+      viewPreviousBtn.style.display = bookings.length ? "inline-flex" : "none";
+    }
+
+    function formatBookingTime(timestamp) {
+      const date = new Date(timestamp);
+      return isNaN(date.getTime()) ? "—" : date.toLocaleString();
+    }
+
+    function renderPreviousBookings(bookings) {
+      previousBookingsList.innerHTML = "";
+      if (!bookings.length) {
+        previousBookingsEmpty.style.display = "block";
+        return;
+      }
+      previousBookingsEmpty.style.display = "none";
+      bookings
+        .slice()
+        .sort(function (a, b) { return b.timestamp - a.timestamp; })
+        .forEach(function (booking) {
+          const card = document.createElement("div");
+          card.className = "booking-card";
+          card.innerHTML =
+            "<h3>Ticket ID: " + booking.ticket_id + "</h3>" +
+            "<p><strong>Passenger:</strong> " + booking.passenger_name + "</p>" +
+            "<p><strong>Train Number:</strong> " + booking.train_no + "</p>" +
+            "<p><strong>Journey:</strong> " + booking.source + " → " + booking.destination + "</p>" +
+            "<p><strong>Seat:</strong> " + booking.coach + " • Berth " + booking.berth_no + " (" + booking.berth_type + ")</p>" +
+            "<p><strong>Price:</strong> ₹" + booking.price + "</p>" +
+            "<p><strong>Booked At:</strong> " + formatBookingTime(booking.timestamp) + "</p>";
+          previousBookingsList.appendChild(card);
+        });
     }
 
     function renderBookingConfirmation(data, options) {
       latestBookingData = data;
       document.getElementById("conf-ticket-id").textContent = data.ticket_id;
-      document.getElementById("conf-name").textContent      = data.name;
+      document.getElementById("conf-name").textContent      = data.name || data.passenger_name;
       document.getElementById("conf-train").textContent     = data.seat_details.train_no;
       document.getElementById("conf-coach").textContent     = data.seat_details.coach;
       document.getElementById("conf-berth").textContent     = data.seat_details.berth_no;
@@ -820,24 +904,6 @@
       document.getElementById("res-journey").textContent = "";
       proceedBtn.disabled = false;
       showStep(stepFindTrains);
-    }
-
-    function applyStoredBookingBehavior() {
-      const stored = getStoredBooking();
-      if (!stored) {
-        viewPreviousBtn.style.display = "none";
-        return;
-      }
-      const restoreMessage = stored.ageMs <= AUTO_RETURN_WINDOW_MS
-        ? "Showing your recent booking from this session."
-        : "";
-      renderBookingConfirmation(stored.data, { restoreMessage: restoreMessage });
-      viewPreviousBtn.style.display = "inline-flex";
-      if (stored.ageMs <= AUTO_RETURN_WINDOW_MS) {
-        showStep(confirmationPanel);
-      } else {
-        showStep(stepFindTrains);
-      }
     }
 
     function openPassengerModal() {
@@ -1130,7 +1196,7 @@
 
         renderBookingConfirmation(data);
         saveBooking(data);
-        viewPreviousBtn.style.display = "inline-flex";
+        updatePreviousBookingsButton();
         hideAlerts();
         showStep(confirmationPanel);
         confirmationPanel.scrollIntoView({ behavior: "smooth" });
@@ -1178,16 +1244,16 @@
     });
 
     viewPreviousBtn.addEventListener("click", function () {
-      const previousBookingMessage = "Showing your previously saved booking.";
-      if (latestBookingData) {
-        renderBookingConfirmation(latestBookingData, { restoreMessage: previousBookingMessage });
-      } else {
-        const stored = getStoredBooking();
-        if (!stored) return;
-        renderBookingConfirmation(stored.data, { restoreMessage: previousBookingMessage });
-      }
-      showStep(confirmationPanel);
-      confirmationPanel.scrollIntoView({ behavior: "smooth" });
+      const bookings = cleanupExpiredBookings();
+      updatePreviousBookingsButton();
+      renderPreviousBookings(bookings);
+      showStep(previousBookingsPanel);
+      previousBookingsPanel.scrollIntoView({ behavior: "smooth" });
+    });
+
+    closePreviousBtn.addEventListener("click", function () {
+      showStep(stepFindTrains);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
     /* =================================================================
@@ -1219,7 +1285,8 @@
     /* =================================================================
      * INITIALISE — load trains on page ready
      * ================================================================= */
-    applyStoredBookingBehavior();
+    showStep(stepFindTrains);
+    updatePreviousBookingsButton();
     fetchTrains();
   </script>
 
