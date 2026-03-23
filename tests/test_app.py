@@ -148,7 +148,7 @@ def test_ui_qr_download_button():
 
 
 def test_ui_uses_deployed_backend_for_step_based_booking_flow():
-    """UI should enforce step-based booking flow with session-based previous booking support."""
+    """UI should enforce step-based booking flow with localStorage-based previous bookings."""
     response = client.get("/ui")
     assert response.status_code == 200
     html = response.text
@@ -171,12 +171,15 @@ def test_ui_uses_deployed_backend_for_step_based_booking_flow():
     assert 'id="result-panel" class="card step-section"' in html
     assert 'id="confirmation-panel" class="card step-section"' in html
     assert 'id="view-previous-btn"' in html
-    assert 'localStorage.setItem(BOOKING_DATA_KEY, JSON.stringify(data));' in html
-    assert 'const BOOKING_DATA_KEY = "bookingData";' in html
-    assert 'const BOOKING_TIME_KEY = "bookingTime";' in html
-    assert "const AUTO_RETURN_WINDOW_MS = 45 * 60 * 1000;" in html
-    assert "const DAY_IN_MS = 24 * 60 * 60 * 1000;" in html
-    assert "applyStoredBookingBehavior();" in html
+    assert "Previous Bookings" in html
+    assert 'const BOOKING_STORAGE_KEY = "smartseat_bookings";' in html
+    assert "const BOOKING_MAX_AGE_MS = 48 * 60 * 60 * 1000;" in html
+    assert "cleanupExpiredBookings()" in html
+    assert "renderPreviousBookings(bookings);" in html
+    assert "showStep(previousBookingsPanel);" in html
+    assert "showStep(stepFindTrains);" in html
+    assert "updatePreviousBookingsButton();" in html
+    assert "applyStoredBookingBehavior();" not in html
     assert 'item.className = "train-option";' in html
     assert "t.departure_time" in html
     assert "t.arrival_time" in html
