@@ -803,6 +803,9 @@
     }
 
     function saveBooking(data) {
+      if (!data || !data.seat_details || !data.ticket_id) {
+        return;
+      }
       const bookings = cleanupExpiredBookings();
       bookings.push({
         ticket_id: data.ticket_id,
@@ -831,6 +834,24 @@
     }
 
     function renderPreviousBookings(bookings) {
+      function addBookingLine(parent, label, value) {
+        const line = document.createElement("p");
+        const strong = document.createElement("strong");
+        strong.textContent = label + ":";
+        line.appendChild(strong);
+        line.appendChild(document.createTextNode(" " + (value || "—")));
+        parent.appendChild(line);
+      }
+
+      function formatSeatInfo(booking) {
+        const berthNo = (booking.berth_no === null || booking.berth_no === undefined)
+          ? "—"
+          : booking.berth_no;
+        return (booking.coach || "—") +
+          " • Berth " + berthNo +
+          " (" + (booking.berth_type || "—") + ")";
+      }
+
       previousBookingsList.innerHTML = "";
       if (!bookings.length) {
         previousBookingsEmpty.style.display = "block";
@@ -843,14 +864,15 @@
         .forEach(function (booking) {
           const card = document.createElement("div");
           card.className = "booking-card";
-          card.innerHTML =
-            "<h3>Ticket ID: " + booking.ticket_id + "</h3>" +
-            "<p><strong>Passenger:</strong> " + booking.passenger_name + "</p>" +
-            "<p><strong>Train Number:</strong> " + booking.train_no + "</p>" +
-            "<p><strong>Journey:</strong> " + booking.source + " → " + booking.destination + "</p>" +
-            "<p><strong>Seat:</strong> " + booking.coach + " • Berth " + booking.berth_no + " (" + booking.berth_type + ")</p>" +
-            "<p><strong>Price:</strong> ₹" + booking.price + "</p>" +
-            "<p><strong>Booked At:</strong> " + formatBookingTime(booking.timestamp) + "</p>";
+          const heading = document.createElement("h3");
+          heading.textContent = "Ticket ID: " + (booking.ticket_id || "—");
+          card.appendChild(heading);
+          addBookingLine(card, "Passenger", booking.passenger_name);
+          addBookingLine(card, "Train Number", booking.train_no);
+          addBookingLine(card, "Journey", (booking.source || "—") + " → " + (booking.destination || "—"));
+          addBookingLine(card, "Seat", formatSeatInfo(booking));
+          addBookingLine(card, "Price", booking.price != null ? "₹" + booking.price : "—");
+          addBookingLine(card, "Booked At", formatBookingTime(booking.timestamp));
           previousBookingsList.appendChild(card);
         });
     }
@@ -858,7 +880,7 @@
     function renderBookingConfirmation(data, options) {
       latestBookingData = data;
       document.getElementById("conf-ticket-id").textContent = data.ticket_id;
-      document.getElementById("conf-name").textContent      = data.name || data.passenger_name;
+      document.getElementById("conf-name").textContent      = data.name;
       document.getElementById("conf-train").textContent     = data.seat_details.train_no;
       document.getElementById("conf-coach").textContent     = data.seat_details.coach;
       document.getElementById("conf-berth").textContent     = data.seat_details.berth_no;
