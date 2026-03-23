@@ -137,6 +137,8 @@ uvicorn app:app --host 0.0.0.0 --port 5000 --reload
 
 Navigate to **http://localhost:5000/ui** for the seat allocation frontend.
 
+Live frontend UI: **https://69492.github.io/SmartSeat/**
+
 ### 6. Open Swagger UI
 
 Navigate to **http://localhost:5000/docs** for interactive API documentation.
