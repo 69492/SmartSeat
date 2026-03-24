@@ -314,6 +314,16 @@
       background: #f8fafc;
       padding: 14px;
     }
+    .booking-card-content {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .booking-details-section {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
     .booking-card h3 {
       font-size: .97rem;
       color: #1e3a5f;
@@ -326,24 +336,36 @@
       line-height: 1.45;
     }
     .booking-card p:last-child { margin-bottom: 0; }
-    .booking-qr-wrapper {
-      margin-top: 10px;
-      text-align: center;
+    .booking-qr-section {
+      flex: 0 0 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
     }
     .booking-qr-img {
-      width: 100%;
-      max-width: 220px;
+      width: 200px;
+      max-width: 100%;
+      aspect-ratio: 1 / 1;
       height: auto;
-      border: 1px solid #e2e8f0;
+      object-fit: contain;
+      border: 2px solid #0f172a;
       border-radius: 12px;
       padding: 8px;
       background: #fff;
     }
     .booking-qr-download-btn {
-      margin-top: 10px;
-      max-width: 220px;
-      margin-left: auto;
-      margin-right: auto;
+      width: 100%;
+      max-width: 200px;
+    }
+    @media (max-width: 700px) {
+      .booking-card-content {
+        flex-direction: column;
+      }
+      .booking-qr-section {
+        width: 100%;
+        align-items: flex-start;
+      }
     }
     .booking-empty {
       font-size: .9rem;
@@ -891,25 +913,29 @@
         .forEach(function (booking) {
           const card = document.createElement("div");
           card.className = "booking-card";
+          const cardContent = document.createElement("div");
+          cardContent.className = "booking-card-content";
+          const detailsSection = document.createElement("div");
+          detailsSection.className = "booking-details-section";
           const heading = document.createElement("h3");
           heading.textContent = "Ticket ID: " + (booking.ticket_id || "—");
-          card.appendChild(heading);
-          addBookingLine(card, "Passenger", booking.passenger_name);
-          addBookingLine(card, "Train Number", booking.train_no);
-          addBookingLine(card, "Journey", (booking.source || "—") + " → " + (booking.destination || "—"));
-          addBookingLine(card, "Seat", formatSeatInfo(booking));
-          addBookingLine(card, "Price", booking.price != null ? "₹" + booking.price : "—");
-          addBookingLine(card, "Booked At", formatBookingTime(booking.timestamp));
+          detailsSection.appendChild(heading);
+          addBookingLine(detailsSection, "Passenger", booking.passenger_name);
+          addBookingLine(detailsSection, "Train Number", booking.train_no);
+          addBookingLine(detailsSection, "Journey", (booking.source || "—") + " → " + (booking.destination || "—"));
+          addBookingLine(detailsSection, "Seat", formatSeatInfo(booking));
+          addBookingLine(detailsSection, "Price", booking.price != null ? "₹" + booking.price : "—");
+          addBookingLine(detailsSection, "Booked At", formatBookingTime(booking.timestamp));
+          cardContent.appendChild(detailsSection);
           if (booking.qr_image) {
-            const qrWrap = document.createElement("div");
-            qrWrap.className = "booking-qr-wrapper";
+            const qrSection = document.createElement("div");
+            qrSection.className = "booking-qr-section";
             const qrImg = document.createElement("img");
             qrImg.className = "booking-qr-img";
             qrImg.src = booking.qr_image;
             qrImg.alt = "Ticket QR Code: " + (booking.ticket_id || "—");
             qrImg.loading = "lazy";
-            qrWrap.appendChild(qrImg);
-            card.appendChild(qrWrap);
+            qrSection.appendChild(qrImg);
 
             const downloadBtn = document.createElement("button");
             downloadBtn.type = "button";
@@ -918,8 +944,10 @@
             downloadBtn.addEventListener("click", function () {
               downloadQrImage(booking.qr_image, booking.ticket_id);
             });
-            card.appendChild(downloadBtn);
+            qrSection.appendChild(downloadBtn);
+            cardContent.appendChild(qrSection);
           }
+          card.appendChild(cardContent);
           previousBookingsList.appendChild(card);
         });
     }

@@ -153,6 +153,9 @@ def test_ui_previous_bookings_has_qr_display_and_download():
     assert response.status_code == 200
     html = response.text
     assert "qr_image: getBookingQrImage(data)" in html
+    assert 'cardContent.className = "booking-card-content";' in html
+    assert 'detailsSection.className = "booking-details-section";' in html
+    assert 'qrSection.className = "booking-qr-section";' in html
     assert 'qrImg.src = booking.qr_image;' in html
     assert 'downloadBtn.textContent = "Download QR";' in html
     assert "downloadQrImage(booking.qr_image, booking.ticket_id);" in html
