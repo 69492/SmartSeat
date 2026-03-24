@@ -326,6 +326,25 @@
       line-height: 1.45;
     }
     .booking-card p:last-child { margin-bottom: 0; }
+    .booking-qr-wrapper {
+      margin-top: 10px;
+      text-align: center;
+    }
+    .booking-qr-img {
+      width: 100%;
+      max-width: 220px;
+      height: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 8px;
+      background: #fff;
+    }
+    .booking-qr-download-btn {
+      margin-top: 10px;
+      max-width: 220px;
+      margin-left: auto;
+      margin-right: auto;
+    }
     .booking-empty {
       font-size: .9rem;
       color: #64748b;
@@ -802,6 +821,13 @@
       return validBookings;
     }
 
+    function getBookingQrImage(data) {
+      if (!data) return "";
+      if (data.qr_image) return data.qr_image;
+      if (!data.qr_url) return "";
+      return /^https?:\/\//i.test(data.qr_url) ? data.qr_url : (API_BASE + data.qr_url);
+    }
+
     function saveBooking(data) {
       if (!data || !data.seat_details || !data.ticket_id) {
         return;
@@ -819,6 +845,7 @@
         destination: data.destination,
         price: data.price,
         timestamp: Date.now(),
+        qr_image: getBookingQrImage(data),
       });
       writeBookingsToStorage(bookings);
     }
@@ -873,7 +900,48 @@
           addBookingLine(card, "Seat", formatSeatInfo(booking));
           addBookingLine(card, "Price", booking.price != null ? "₹" + booking.price : "—");
           addBookingLine(card, "Booked At", formatBookingTime(booking.timestamp));
+          if (booking.qr_image) {
+            const qrWrap = document.createElement("div");
+            qrWrap.className = "booking-qr-wrapper";
+            const qrImg = document.createElement("img");
+            qrImg.className = "booking-qr-img";
+            qrImg.src = booking.qr_image;
+            qrImg.alt = "Ticket QR Code: " + (booking.ticket_id || "—");
+            qrImg.loading = "lazy";
+            qrWrap.appendChild(qrImg);
+            card.appendChild(qrWrap);
+
+            const downloadBtn = document.createElement("button");
+            downloadBtn.type = "button";
+            downloadBtn.className = "btn btn-success booking-qr-download-btn";
+            downloadBtn.textContent = "Download QR";
+            downloadBtn.addEventListener("click", function () {
+              downloadQrImage(booking.qr_image, booking.ticket_id);
+            });
+            card.appendChild(downloadBtn);
+          }
           previousBookingsList.appendChild(card);
+        });
+    }
+
+    function downloadQrImage(qrImageSrc, ticketId) {
+      if (!qrImageSrc) return;
+      const safeTicketId = String(ticketId || "QR").replace(/[^A-Za-z0-9_-]/g, "_");
+      const fileName = "SmartSeat_Ticket_" + safeTicketId + ".png";
+      fetch(qrImageSrc)
+        .then(function (res) { return res.blob(); })
+        .then(function (blob) {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        })
+        .catch(function () {
+          alert("Unable to download QR code. Please try again.");
         });
     }
 
@@ -1284,24 +1352,7 @@
 
     document.getElementById("download-qr-btn").addEventListener("click", function () {
       const img = document.getElementById("conf-qr-img");
-      if (!img.src) return;
-      const ticketId = this.dataset.ticketId || "QR";
-      const fileName = "SmartSeat_Ticket_" + ticketId + ".png";
-      fetch(img.src)
-        .then(function (res) { return res.blob(); })
-        .then(function (blob) {
-          var url = URL.createObjectURL(blob);
-          var a = document.createElement("a");
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        })
-        .catch(function () {
-          alert("Unable to download QR code. Please try again.");
-        });
+      downloadQrImage(img.src, this.dataset.ticketId);
     });
 
     /* =================================================================
