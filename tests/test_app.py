@@ -147,6 +147,17 @@ def test_ui_qr_download_button():
     assert "SmartSeat_Ticket_" in html
 
 
+def test_ui_previous_bookings_has_qr_display_and_download():
+    """Previous bookings should persist qr_image and support QR rendering/download."""
+    response = client.get("/ui")
+    assert response.status_code == 200
+    html = response.text
+    assert "qr_image: getBookingQrImage(data)" in html
+    assert 'qrImg.src = booking.qr_image;' in html
+    assert 'downloadBtn.textContent = "Download QR";' in html
+    assert "downloadQrImage(booking.qr_image, booking.ticket_id);" in html
+
+
 def test_ui_uses_deployed_backend_for_step_based_booking_flow():
     """UI should enforce step-based booking flow with localStorage-based previous bookings."""
     response = client.get("/ui")
