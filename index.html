@@ -1529,15 +1529,19 @@
       }
 
       hideAlerts();
+      if (!parsed.journey || !parsed.seat) {
+        showError("Invalid QR payload format.");
+        return;
+      }
       const ticket = {
         ticket_id: parsed.ticket_id || "",
         name: parsed.name || "",
         train_no: parsed.train_no || "",
-        source: (parsed.journey && parsed.journey.source) || parsed.source || "",
-        destination: (parsed.journey && parsed.journey.destination) || parsed.destination || "",
-        coach: parsed.seat && parsed.seat.coach,
-        berth_no: parsed.seat && parsed.seat.berth_no,
-        berth_type: parsed.seat && parsed.seat.berth_type,
+        source: parsed.journey.source || "",
+        destination: parsed.journey.destination || "",
+        coach: parsed.seat.coach,
+        berth_no: parsed.seat.berth_no,
+        berth_type: parsed.seat.berth_type,
         valid_from: parsed.valid_from || "",
         valid_until: parsed.valid_until || "",
       };
