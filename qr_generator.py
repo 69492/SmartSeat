@@ -31,7 +31,7 @@ def _build_qr_payload(booking: dict[str, Any]) -> str:
     """Build a structured QR payload for scanner-side verification."""
     payload = {
         "ticket_id": booking.get("ticket_id", ""),
-        "passenger_name": booking.get("name", ""),
+        "name": booking.get("name", ""),
         "train_no": booking.get("train_no", ""),
         "journey": {
             "source": booking.get("source", ""),

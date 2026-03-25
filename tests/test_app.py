@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,6 +12,7 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("DATA_DIR", os.path.join(os.path.dirname(__file__), "_test_data"))
 
 from app import app  # noqa: E402
+import app as app_module  # noqa: E402
 
 client = TestClient(app)
 
@@ -297,8 +299,15 @@ def test_book_ticket():
         assert body["age"] == 25
 
 
-def test_verify_ticket_endpoint():
-    response = client.post(
+def test_verify_ticket_endpoint(monkeypatch):
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 1, 1, 12, 0, 0, tzinfo=tz)
+
+    monkeypatch.setattr(app_module, "datetime", FrozenDateTime)
+
+    valid_response = client.post(
         "/verify_ticket",
         json={
             "ticket": {
@@ -315,11 +324,43 @@ def test_verify_ticket_endpoint():
             }
         },
     )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["ticket_id"] == "SM-TEST123"
-    assert body["name"] == "Verifier"
-    assert body["validity_status"] == "VALID"
+    assert valid_response.status_code == 200
+    valid_body = valid_response.json()
+    assert valid_body["ticket_id"] == "SM-TEST123"
+    assert valid_body["name"] == "Verifier"
+    assert valid_body["validity_status"] == "VALID"
+
+    pending_response = client.post(
+        "/verify_ticket",
+        json={
+            "ticket": {
+                "ticket_id": "SM-FUTURE",
+                "name": "Future",
+                "train_no": "12301",
+                "valid_from": "12:10",
+                "valid_until": "12:20",
+            }
+        },
+    )
+    assert pending_response.status_code == 200
+    pending_body = pending_response.json()
+    assert pending_body["validity_status"] == "NOT_YET_VALID"
+
+    expired_response = client.post(
+        "/verify_ticket",
+        json={
+            "ticket": {
+                "ticket_id": "SM-PAST",
+                "name": "Past",
+                "train_no": "12301",
+                "valid_from": "11:30",
+                "valid_until": "11:40",
+            }
+        },
+    )
+    assert expired_response.status_code == 200
+    expired_body = expired_response.json()
+    assert expired_body["validity_status"] == "EXPIRED"
 
 
 def test_book_ticket_with_email():

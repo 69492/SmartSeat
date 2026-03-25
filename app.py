@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 import uuid
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta, timezone
@@ -102,12 +101,6 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-ROOT_INDEX_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
-
-os.makedirs(STATIC_DIR, exist_ok=True)
-static_index = os.path.join(STATIC_DIR, "index.html")
-if not os.path.exists(static_index) and os.path.exists(ROOT_INDEX_PATH):
-    shutil.copyfile(ROOT_INDEX_PATH, static_index)
 
 if os.path.isdir(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -199,10 +192,14 @@ def _hhmm_to_minutes(hhmm: str) -> int:
 
 
 def _build_stations_from_route(route: list[str]) -> list[dict[str, str]]:
-    start = datetime.combine(date.today(), datetime.strptime("06:00", "%H:%M").time())
+    start_minutes = getattr(data_generator, "START_TIME_MINUTES", 6 * 60)
+    min_hop = getattr(data_generator, "MIN_HOP_MINUTES", 35)
+    max_hop = getattr(data_generator, "MAX_HOP_MINUTES", 70)
+    avg_hop = (min_hop + max_hop) // 2
+    start = datetime.combine(date.today(), datetime.min.time()) + timedelta(minutes=start_minutes)
     stations: list[dict[str, str]] = []
     for idx, station in enumerate(route):
-        arrival = start + timedelta(minutes=60 * idx)
+        arrival = start + timedelta(minutes=avg_hop * idx)
         stations.append({"code": station, "arrival": arrival.strftime("%H:%M")})
     return stations
 

@@ -776,7 +776,7 @@
       <div class="verify-box">
         <h3>Ticket Verification</h3>
         <p style="font-size:.84rem;color:#64748b;margin-bottom:8px">Paste scanned QR JSON payload to verify current validity status.</p>
-        <textarea id="verify-payload" placeholder='{"ticket_id":"SM-XXXX","passenger_name":"Name","train_no":"12301","journey":{"source":"A","destination":"B"},"seat":{"coach":"S1","berth_no":10,"berth_type":"LB"},"valid_from":"09:00","valid_until":"10:25"}'></textarea>
+        <textarea id="verify-payload"></textarea>
         <button id="verify-ticket-btn" class="btn btn-success" style="margin-top:10px">Verify Ticket</button>
         <div id="verify-result" class="verify-result"></div>
       </div>
@@ -863,6 +863,7 @@
 
     const BOOKING_STORAGE_KEY = "smartseat_bookings";
     const BOOKING_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+    const QR_VERIFY_PLACEHOLDER = '{"ticket_id":"SM-XXXX","name":"Name","train_no":"12301","valid_from":"09:00","valid_until":"10:25"}';
 
     /* =================================================================
      * HELPERS
@@ -985,7 +986,7 @@
 
     function formatValidityStatus(status) {
       if (status === "VALID") {
-        return { label: "Ticket Valid", message: "Ticket Valid", cls: "validity-status-valid", msgCls: "valid", showQr: true };
+        return { label: "Ticket Valid", message: "This ticket is currently valid for travel.", cls: "validity-status-valid", msgCls: "valid", showQr: true };
       }
       if (status === "NOT_YET_VALID") {
         return { label: "Not Yet Valid", message: "Ticket not yet valid", cls: "validity-status-pending", msgCls: "pending", showQr: false };
@@ -1140,6 +1141,8 @@
         confQr.style.display = "none";
       }
     }
+
+    verifyPayloadInput.placeholder = QR_VERIFY_PLACEHOLDER;
 
     function resetForNewBooking() {
       hideAlerts();
@@ -1528,7 +1531,7 @@
       hideAlerts();
       const ticket = {
         ticket_id: parsed.ticket_id || "",
-        name: parsed.passenger_name || parsed.name || "",
+        name: parsed.name || "",
         train_no: parsed.train_no || "",
         source: (parsed.journey && parsed.journey.source) || parsed.source || "",
         destination: (parsed.journey && parsed.journey.destination) || parsed.destination || "",
