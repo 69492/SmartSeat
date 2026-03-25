@@ -23,7 +23,7 @@ import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, AsyncGenerator
 
 from fastapi import FastAPI, HTTPException
@@ -164,9 +164,88 @@ class BookTicketRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class VerifyTicketRequest(BaseModel):
+    """Request body for POST /verify_ticket."""
+
+    ticket: dict[str, Any]
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
+def _find_station_arrival(stations: list[dict[str, Any]], station_code: str) -> str | None:
+    for station in stations:
+        if station.get("code") == station_code:
+            return station.get("arrival")
+    return None
+
+
+def _parse_hhmm(hhmm: str) -> datetime:
+    parsed_time = datetime.strptime(hhmm, "%H:%M").time()
+    return datetime.combine(date.today(), parsed_time)
+
+
+def _hhmm_to_minutes(hhmm: str) -> int:
+    parsed = datetime.strptime(hhmm, "%H:%M")
+    return parsed.hour * 60 + parsed.minute
+
+
+def _build_stations_from_route(route: list[str]) -> list[dict[str, str]]:
+    start_minutes = getattr(data_generator, "START_TIME_MINUTES", 6 * 60)
+    min_hop = getattr(data_generator, "MIN_HOP_MINUTES", 35)
+    max_hop = getattr(data_generator, "MAX_HOP_MINUTES", 70)
+    avg_hop = (min_hop + max_hop) // 2
+    start = datetime.combine(date.today(), datetime.min.time()) + timedelta(minutes=start_minutes)
+    stations: list[dict[str, str]] = []
+    for idx, station in enumerate(route):
+        arrival = start + timedelta(minutes=avg_hop * idx)
+        stations.append({"code": station, "arrival": arrival.strftime("%H:%M")})
+    return stations
+
+
+def _get_train_stations(train: dict[str, Any]) -> list[dict[str, str]]:
+    stations = train.get("stations") or []
+    if stations:
+        return stations
+    route = train.get("route") or []
+    return _build_stations_from_route(route)
+
+
+def _calculate_validity_window(train: dict[str, Any], source: str, destination: str) -> tuple[str, str]:
+    stations = _get_train_stations(train)
+    source_arrival = _find_station_arrival(stations, source)
+    destination_arrival = _find_station_arrival(stations, destination)
+    if not source_arrival or not destination_arrival:
+        raise HTTPException(
+            status_code=400,
+            detail="Train timetable missing source/destination arrival times.",
+        )
+    valid_from_dt = _parse_hhmm(source_arrival)
+    valid_until_dt = _parse_hhmm(destination_arrival) + timedelta(minutes=5)
+    return valid_from_dt.strftime("%H:%M"), valid_until_dt.strftime("%H:%M")
+
+
+def _get_ticket_validity_status(valid_from: str | None, valid_until: str | None) -> str:
+    if not valid_from or not valid_until:
+        return "UNKNOWN"
+    try:
+        now_minutes = _hhmm_to_minutes(datetime.now().strftime("%H:%M"))
+        from_minutes = _hhmm_to_minutes(valid_from)
+        until_minutes = _hhmm_to_minutes(valid_until)
+    except ValueError:
+        return "UNKNOWN"
+
+    if from_minutes <= until_minutes:
+        if now_minutes < from_minutes:
+            return "NOT_YET_VALID"
+        if now_minutes > until_minutes:
+            return "EXPIRED"
+        return "VALID"
+
+    if now_minutes >= from_minutes or now_minutes <= until_minutes:
+        return "VALID"
+    return "NOT_YET_VALID"
 
 @app.get("/", tags=["Health"])
 def root() -> dict[str, str]:
@@ -186,6 +265,7 @@ def list_trains() -> list[dict[str, Any]]:
             "train_no":   t["train_no"],
             "train_name": t["train_name"],
             "route":      t["route"],
+            "stations":   t.get("stations", []),
             "coaches":    [c["coach"] for c in t["coaches"]],
         }
         for t in data
@@ -207,10 +287,14 @@ def search_trains(request: TrainSearchRequest) -> list[dict[str, Any]]:
             continue
         if route.index(source) >= route.index(destination):
             continue
+        stations = _get_train_stations(train)
         matches.append({
             "train_no": train["train_no"],
             "train_name": train["train_name"],
             "route": route,
+            "stations": stations,
+            "departure_time": _find_station_arrival(stations, source),
+            "arrival_time": _find_station_arrival(stations, destination),
             "coaches": [c["coach"] for c in train["coaches"]],
         })
     return matches
@@ -359,6 +443,19 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
     source      = request.source
     destination = request.destination
 
+    data = data_generator.load_train_data(DATA_PATH)
+    train = next((t for t in data if t["train_no"] == train_no), None)
+    if not train:
+        raise HTTPException(status_code=400, detail=f"Train '{train_no}' not found.")
+
+    if source not in train["route"] or destination not in train["route"]:
+        raise HTTPException(status_code=400, detail="Invalid source/destination for this train.")
+
+    if train["route"].index(source) >= train["route"].index(destination):
+        raise HTTPException(status_code=400, detail="Destination must come after source.")
+
+    valid_from, valid_until = _calculate_validity_window(train, source, destination)
+
     # --- Use pre-allocated seat or allocate a new one ---
     if request.coach is not None and request.berth_no is not None:
         allocated = {
@@ -410,6 +507,8 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
         "allocation_type": allocated["allocation_type"],
         "price":           price,
         "booking_time":    booking_time,
+        "valid_from":      valid_from,
+        "valid_until":     valid_until,
         "validity":        f"Valid until arrival at {destination}",
         "status":          "CONFIRMED",
     }
@@ -441,10 +540,34 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
         "destination":  destination,
         "price":        price,
         "booking_time": booking_time,
+        "valid_from":   valid_from,
+        "valid_until":  valid_until,
+        "validity_status": _get_ticket_validity_status(valid_from, valid_until),
         "validity":     f"Valid until arrival at {destination}",
         "status":       "CONFIRMED",
         "qr_url":       f"/qr/{qr_filename}" if qr_filename else None,
         "email_status": email_status,
+    }
+
+
+@app.post("/verify_ticket", tags=["Verification"])
+def verify_ticket(request: VerifyTicketRequest) -> dict[str, Any]:
+    """Verify ticket status based on current client-independent server time."""
+    ticket = request.ticket or {}
+    status = _get_ticket_validity_status(ticket.get("valid_from"), ticket.get("valid_until"))
+    return {
+        "ticket_id": ticket.get("ticket_id"),
+        "name": ticket.get("name"),
+        "train_no": ticket.get("train_no"),
+        "journey": f"{ticket.get('source', '')} → {ticket.get('destination', '')}",
+        "seat": {
+            "coach": ticket.get("coach"),
+            "berth_no": ticket.get("berth_no"),
+            "berth_type": ticket.get("berth_type"),
+        },
+        "valid_from": ticket.get("valid_from"),
+        "valid_until": ticket.get("valid_until"),
+        "validity_status": status,
     }
 
 

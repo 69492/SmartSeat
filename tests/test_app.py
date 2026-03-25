@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,6 +12,7 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("DATA_DIR", os.path.join(os.path.dirname(__file__), "_test_data"))
 
 from app import app  # noqa: E402
+import app as app_module  # noqa: E402
 
 client = TestClient(app)
 
@@ -68,6 +70,10 @@ def test_search_trains_by_stations():
     trains = response.json()
     assert isinstance(trains, list)
     assert any(t["train_no"] == "12301" for t in trains)
+    first = trains[0]
+    assert "departure_time" in first
+    assert "arrival_time" in first
+    assert "stations" in first
 
 
 def test_recommendations_endpoint():
@@ -284,10 +290,77 @@ def test_book_ticket():
         assert "price" in body
         assert "booking_time" in body
         assert "validity" in body
+        assert "valid_from" in body
+        assert "valid_until" in body
+        assert "validity_status" in body
         assert "qr_url" in body
         assert body["status"] == "CONFIRMED"
         assert body["name"] == "Test User"
         assert body["age"] == 25
+
+
+def test_verify_ticket_endpoint(monkeypatch):
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 1, 1, 12, 0, 0, tzinfo=tz)
+
+    monkeypatch.setattr(app_module, "datetime", FrozenDateTime)
+
+    valid_response = client.post(
+        "/verify_ticket",
+        json={
+            "ticket": {
+                "ticket_id": "SM-TEST123",
+                "name": "Verifier",
+                "train_no": "12301",
+                "source": "Howrah",
+                "destination": "Asansol",
+                "coach": "S1",
+                "berth_no": 1,
+                "berth_type": "LB",
+                "valid_from": "00:00",
+                "valid_until": "23:59",
+            }
+        },
+    )
+    assert valid_response.status_code == 200
+    valid_body = valid_response.json()
+    assert valid_body["ticket_id"] == "SM-TEST123"
+    assert valid_body["name"] == "Verifier"
+    assert valid_body["validity_status"] == "VALID"
+
+    pending_response = client.post(
+        "/verify_ticket",
+        json={
+            "ticket": {
+                "ticket_id": "SM-FUTURE",
+                "name": "Future",
+                "train_no": "12301",
+                "valid_from": "12:10",
+                "valid_until": "12:20",
+            }
+        },
+    )
+    assert pending_response.status_code == 200
+    pending_body = pending_response.json()
+    assert pending_body["validity_status"] == "NOT_YET_VALID"
+
+    expired_response = client.post(
+        "/verify_ticket",
+        json={
+            "ticket": {
+                "ticket_id": "SM-PAST",
+                "name": "Past",
+                "train_no": "12301",
+                "valid_from": "11:30",
+                "valid_until": "11:40",
+            }
+        },
+    )
+    assert expired_response.status_code == 200
+    expired_body = expired_response.json()
+    assert expired_body["validity_status"] == "EXPIRED"
 
 
 def test_book_ticket_with_email():

@@ -10,6 +10,7 @@ a successful payment and saves it to the qr_codes/ directory.
 from __future__ import annotations
 
 import logging
+import json
 import os
 from typing import Any
 
@@ -26,36 +27,35 @@ logger = logging.getLogger(__name__)
 QR_DIR = config.QR_DIR
 
 
-def _build_readable_text(booking: dict[str, Any]) -> str:
-    """Build a human-readable ticket string for QR encoding."""
-    lines = [
-        "SmartSeat Ticket",
-        "",
-        f"Ticket ID: {booking.get('ticket_id', '')}",
-        f"Passenger: {booking.get('name', '')}",
-        f"Age: {booking.get('age', '')}",
-        f"Train: {booking.get('train_no', '')}",
-        f"Coach: {booking.get('coach', '')}",
-        f"Berth No: {booking.get('berth_no', '')}",
-        f"Berth Type: {booking.get('berth_type', '')}",
-        f"From: {booking.get('source', '')}",
-        f"To: {booking.get('destination', '')}",
-        f"Allocation: {booking.get('allocation_type', '')}",
-        f"Price: {booking.get('price', '')}",
-        f"Booked: {booking.get('booking_time', '')}",
-        f"Validity: {booking.get('validity', '')}",
-        f"Status: {booking.get('status', 'CONFIRMED')}",
-    ]
-    return "\n".join(lines)
+def _build_qr_payload(booking: dict[str, Any]) -> str:
+    """Build a structured QR payload for scanner-side verification."""
+    payload = {
+        "ticket_id": booking.get("ticket_id", ""),
+        "name": booking.get("name", ""),
+        "train_no": booking.get("train_no", ""),
+        "journey": {
+            "source": booking.get("source", ""),
+            "destination": booking.get("destination", ""),
+        },
+        "seat": {
+            "coach": booking.get("coach", ""),
+            "berth_no": booking.get("berth_no", ""),
+            "berth_type": booking.get("berth_type", ""),
+            "allocation_type": booking.get("allocation_type", ""),
+        },
+        "valid_from": booking.get("valid_from", ""),
+        "valid_until": booking.get("valid_until", ""),
+        "status": booking.get("status", "CONFIRMED"),
+    }
+    return json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
 
 
 def generate_qr(booking: dict[str, Any], output_dir: str = QR_DIR) -> str:
     """
     Generate a QR code image for the given booking and save it to disk.
 
-    The QR encodes a human-readable ticket text (not JSON) so that it
-    can be scanned and read by any standard QR scanner, phone camera,
-    or Google Lens.
+    The QR encodes structured JSON so verification clients can parse
+    validity times and ticket details reliably.
 
     Parameters
     ----------
@@ -75,7 +75,7 @@ def generate_qr(booking: dict[str, Any], output_dir: str = QR_DIR) -> str:
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    qr_text = _build_readable_text(booking)
+    qr_text = _build_qr_payload(booking)
 
     # Create QR code with error-correction level M
     qr = qrcode.QRCode(

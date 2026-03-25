@@ -373,6 +373,65 @@
       text-align: center;
       padding: 8px 0 2px;
     }
+    .validity-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: .78rem;
+    }
+    .validity-status-valid {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .validity-status-pending {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+    .validity-status-expired {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .validity-message {
+      margin-top: 8px;
+      font-size: .86rem;
+      font-weight: 600;
+    }
+    .validity-message.valid { color: #166534; }
+    .validity-message.pending { color: #1d4ed8; }
+    .validity-message.expired { color: #991b1b; }
+    .verify-box {
+      margin-top: 18px;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 14px;
+    }
+    .verify-box h3 {
+      font-size: .98rem;
+      color: #1e3a5f;
+      margin-bottom: 8px;
+    }
+    .verify-box textarea {
+      width: 100%;
+      min-height: 120px;
+      resize: vertical;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: .86rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: #fff;
+      color: #0f172a;
+    }
+    .verify-result {
+      margin-top: 12px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 12px;
+      display: none;
+    }
 
     /* ---------- QR code image ---------- */
     .qr-wrapper {
@@ -678,7 +737,11 @@
         <tr><th>Allocation</th>     <td id="conf-alloc"></td></tr>
         <tr><th>Price</th>          <td id="conf-price"></td></tr>
         <tr><th>Booking Time</th>   <td id="conf-time"></td></tr>
+        <tr><th>Valid From</th>     <td id="conf-valid-from"></td></tr>
+        <tr><th>Valid Until</th>    <td id="conf-valid-until"></td></tr>
+        <tr><th>Validity Status</th><td id="conf-validity-status"></td></tr>
       </table>
+      <p id="conf-validity-message" class="validity-message" style="display:none"></p>
 
       <div class="qr-wrapper" id="conf-qr-wrapper" style="display:none">
         <img id="conf-qr-img" src="" alt="Ticket QR Code" crossorigin="anonymous" />
@@ -709,6 +772,14 @@
       <div id="previous-bookings-empty" class="booking-empty" style="display:none">No recent bookings found.</div>
       <div id="previous-bookings-list" class="booking-list"></div>
       <button id="close-previous-btn" class="btn btn-primary" style="margin-top:14px">Close</button>
+
+      <div class="verify-box">
+        <h3>Ticket Verification</h3>
+        <p style="font-size:.84rem;color:#64748b;margin-bottom:8px">Paste scanned QR JSON payload to verify current validity status.</p>
+        <textarea id="verify-payload"></textarea>
+        <button id="verify-ticket-btn" class="btn btn-success" style="margin-top:10px">Verify Ticket</button>
+        <div id="verify-result" class="verify-result"></div>
+      </div>
     </div>
   </main>
 
@@ -764,6 +835,9 @@
     const previousBookingsList = document.getElementById("previous-bookings-list");
     const previousBookingsEmpty = document.getElementById("previous-bookings-empty");
     const closePreviousBtn = document.getElementById("close-previous-btn");
+    const verifyPayloadInput = document.getElementById("verify-payload");
+    const verifyTicketBtn = document.getElementById("verify-ticket-btn");
+    const verifyResult = document.getElementById("verify-result");
 
     /* Booking flow panels */
     const proceedBtn        = document.getElementById("proceed-btn");
@@ -789,6 +863,7 @@
 
     const BOOKING_STORAGE_KEY = "smartseat_bookings";
     const BOOKING_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+    const QR_VERIFY_PLACEHOLDER = '{"ticket_id":"SM-XXXX","name":"Name","train_no":"12301","valid_from":"09:00","valid_until":"10:25"}';
 
     /* =================================================================
      * HELPERS
@@ -868,6 +943,8 @@
         price: data.price,
         timestamp: Date.now(),
         qr_image: getBookingQrImage(data),
+        valid_from: data.valid_from || "",
+        valid_until: data.valid_until || "",
       });
       writeBookingsToStorage(bookings);
     }
@@ -880,6 +957,44 @@
     function formatBookingTime(timestamp) {
       const date = new Date(timestamp);
       return isNaN(date.getTime()) ? "—" : date.toLocaleString();
+    }
+
+    function parseMinutesFromHHMM(timeText) {
+      if (!timeText || typeof timeText !== "string") return null;
+      const parts = timeText.split(":");
+      if (parts.length !== 2) return null;
+      const hh = parseInt(parts[0], 10);
+      const mm = parseInt(parts[1], 10);
+      if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+      return (hh * 60) + mm;
+    }
+
+    function getTicketValidityStatus(validFrom, validUntil) {
+      const now = new Date();
+      const nowMinutes = (now.getHours() * 60) + now.getMinutes();
+      const fromMinutes = parseMinutesFromHHMM(validFrom);
+      const untilMinutes = parseMinutesFromHHMM(validUntil);
+      if (fromMinutes === null || untilMinutes === null) return "UNKNOWN";
+      if (fromMinutes <= untilMinutes) {
+        if (nowMinutes < fromMinutes) return "NOT_YET_VALID";
+        if (nowMinutes > untilMinutes) return "EXPIRED";
+        return "VALID";
+      }
+      if (nowMinutes >= fromMinutes || nowMinutes <= untilMinutes) return "VALID";
+      return "NOT_YET_VALID";
+    }
+
+    function formatValidityStatus(status) {
+      if (status === "VALID") {
+        return { label: "Ticket Valid", message: "This ticket is currently valid for travel.", cls: "validity-status-valid", msgCls: "valid", showQr: true };
+      }
+      if (status === "NOT_YET_VALID") {
+        return { label: "Not Yet Valid", message: "Ticket not yet valid", cls: "validity-status-pending", msgCls: "pending", showQr: false };
+      }
+      if (status === "EXPIRED") {
+        return { label: "Validity Expired", message: "Ticket Validity Expired", cls: "validity-status-expired", msgCls: "expired", showQr: false };
+      }
+      return { label: "Unknown", message: "Validity unavailable", cls: "validity-status-expired", msgCls: "expired", showQr: false };
     }
 
     function renderPreviousBookings(bookings) {
@@ -924,10 +1039,22 @@
           addBookingLine(detailsSection, "Train Number", booking.train_no);
           addBookingLine(detailsSection, "Journey", (booking.source || "—") + " → " + (booking.destination || "—"));
           addBookingLine(detailsSection, "Seat", formatSeatInfo(booking));
+          addBookingLine(detailsSection, "Valid From", booking.valid_from || "—");
+          addBookingLine(detailsSection, "Valid Until", booking.valid_until || "—");
           addBookingLine(detailsSection, "Price", booking.price != null ? "₹" + booking.price : "—");
           addBookingLine(detailsSection, "Booked At", formatBookingTime(booking.timestamp));
+          const bookingStatus = getTicketValidityStatus(booking.valid_from, booking.valid_until);
+          const bookingStatusView = formatValidityStatus(bookingStatus);
+          const statusBadge = document.createElement("span");
+          statusBadge.className = "validity-status " + bookingStatusView.cls;
+          statusBadge.textContent = bookingStatusView.label;
+          detailsSection.appendChild(statusBadge);
+          const statusText = document.createElement("p");
+          statusText.className = "validity-message " + bookingStatusView.msgCls;
+          statusText.textContent = bookingStatusView.message;
+          detailsSection.appendChild(statusText);
           cardContent.appendChild(detailsSection);
-          if (booking.qr_image) {
+          if (booking.qr_image && bookingStatusView.showQr) {
             const qrSection = document.createElement("div");
             qrSection.className = "booking-qr-section";
             const qrImg = document.createElement("img");
@@ -985,6 +1112,8 @@
       document.getElementById("conf-journey").textContent   = data.source + "  →  " + data.destination;
       document.getElementById("conf-price").textContent     = "₹" + data.price;
       document.getElementById("conf-time").textContent      = data.booking_time;
+      document.getElementById("conf-valid-from").textContent = data.valid_from || "—";
+      document.getElementById("conf-valid-until").textContent = data.valid_until || "—";
       const restoreNote = document.getElementById("conf-restore-note");
       if (options && options.restoreMessage) {
         restoreNote.textContent = options.restoreMessage;
@@ -994,8 +1123,17 @@
         restoreNote.style.display = "none";
       }
 
+      const confirmStatus = getTicketValidityStatus(data.valid_from, data.valid_until);
+      const confirmStatusView = formatValidityStatus(confirmStatus);
+      document.getElementById("conf-validity-status").innerHTML =
+        '<span class="validity-status ' + confirmStatusView.cls + '">' + confirmStatusView.label + "</span>";
+      const confValidityMessage = document.getElementById("conf-validity-message");
+      confValidityMessage.className = "validity-message " + confirmStatusView.msgCls;
+      confValidityMessage.textContent = confirmStatusView.message;
+      confValidityMessage.style.display = "block";
+
       const confQr = document.getElementById("conf-qr-wrapper");
-      if (data.qr_url) {
+      if (data.qr_url && confirmStatusView.showQr) {
         document.getElementById("conf-qr-img").src = API_BASE + data.qr_url;
         document.getElementById("download-qr-btn").dataset.ticketId = data.ticket_id || "";
         confQr.style.display = "block";
@@ -1003,6 +1141,8 @@
         confQr.style.display = "none";
       }
     }
+
+    verifyPayloadInput.placeholder = QR_VERIFY_PLACEHOLDER;
 
     function resetForNewBooking() {
       hideAlerts();
@@ -1372,6 +1512,66 @@
     closePreviousBtn.addEventListener("click", function () {
       showStep(stepFindTrains);
       window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    verifyTicketBtn.addEventListener("click", async function () {
+      const rawPayload = verifyPayloadInput.value.trim();
+      if (!rawPayload) {
+        showError("Please paste a QR payload.");
+        return;
+      }
+      let parsed;
+      try {
+        parsed = JSON.parse(rawPayload);
+      } catch (err) {
+        showError("Invalid JSON payload.");
+        return;
+      }
+
+      hideAlerts();
+      if (!parsed.journey || !parsed.seat) {
+        showError("Invalid QR payload format.");
+        return;
+      }
+      const ticket = {
+        ticket_id: parsed.ticket_id || "",
+        name: parsed.name || "",
+        train_no: parsed.train_no || "",
+        source: parsed.journey.source || "",
+        destination: parsed.journey.destination || "",
+        coach: parsed.seat.coach,
+        berth_no: parsed.seat.berth_no,
+        berth_type: parsed.seat.berth_type,
+        valid_from: parsed.valid_from || "",
+        valid_until: parsed.valid_until || "",
+      };
+
+      try {
+        const res = await fetch(API_BASE + "/verify_ticket", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticket: ticket }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showError((data && data.detail) || "Verification failed.");
+          return;
+        }
+        const statusView = formatValidityStatus(data.validity_status);
+        verifyResult.style.display = "block";
+        verifyResult.innerHTML =
+          "<p><strong>Ticket ID:</strong> " + (data.ticket_id || "—") + "</p>" +
+          "<p><strong>Passenger:</strong> " + (data.name || "—") + "</p>" +
+          "<p><strong>Train:</strong> " + (data.train_no || "—") + "</p>" +
+          "<p><strong>Journey:</strong> " + (data.journey || "—") + "</p>" +
+          "<p><strong>Seat:</strong> " + ((data.seat && data.seat.coach) || "—") + " • Berth " + ((data.seat && data.seat.berth_no) || "—") + " (" + ((data.seat && data.seat.berth_type) || "—") + ")</p>" +
+          "<p><strong>Valid From:</strong> " + (data.valid_from || "—") + "</p>" +
+          "<p><strong>Valid Until:</strong> " + (data.valid_until || "—") + "</p>" +
+          '<p><strong>Status:</strong> <span class="validity-status ' + statusView.cls + '">' + statusView.label + "</span></p>" +
+          '<p class="validity-message ' + statusView.msgCls + '">' + statusView.message + "</p>";
+      } catch (err) {
+        showError("Unable to verify ticket right now.");
+      }
     });
 
     /* =================================================================
