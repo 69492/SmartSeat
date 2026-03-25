@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 import uuid
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta, timezone
@@ -101,6 +102,12 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+ROOT_INDEX_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
+
+os.makedirs(STATIC_DIR, exist_ok=True)
+static_index = os.path.join(STATIC_DIR, "index.html")
+if not os.path.exists(static_index) and os.path.exists(ROOT_INDEX_PATH):
+    shutil.copyfile(ROOT_INDEX_PATH, static_index)
 
 if os.path.isdir(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -191,8 +198,25 @@ def _hhmm_to_minutes(hhmm: str) -> int:
     return parsed.hour * 60 + parsed.minute
 
 
-def _calculate_validity_window(train: dict[str, Any], source: str, destination: str) -> tuple[str, str]:
+def _build_stations_from_route(route: list[str]) -> list[dict[str, str]]:
+    start = datetime.combine(date.today(), datetime.strptime("06:00", "%H:%M").time())
+    stations: list[dict[str, str]] = []
+    for idx, station in enumerate(route):
+        arrival = start + timedelta(minutes=60 * idx)
+        stations.append({"code": station, "arrival": arrival.strftime("%H:%M")})
+    return stations
+
+
+def _get_train_stations(train: dict[str, Any]) -> list[dict[str, str]]:
     stations = train.get("stations") or []
+    if stations:
+        return stations
+    route = train.get("route") or []
+    return _build_stations_from_route(route)
+
+
+def _calculate_validity_window(train: dict[str, Any], source: str, destination: str) -> tuple[str, str]:
+    stations = _get_train_stations(train)
     source_arrival = _find_station_arrival(stations, source)
     destination_arrival = _find_station_arrival(stations, destination)
     if not source_arrival or not destination_arrival:
@@ -266,7 +290,7 @@ def search_trains(request: TrainSearchRequest) -> list[dict[str, Any]]:
             continue
         if route.index(source) >= route.index(destination):
             continue
-        stations = train.get("stations", [])
+        stations = _get_train_stations(train)
         matches.append({
             "train_no": train["train_no"],
             "train_name": train["train_name"],

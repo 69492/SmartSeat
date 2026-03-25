@@ -68,6 +68,10 @@ def test_search_trains_by_stations():
     trains = response.json()
     assert isinstance(trains, list)
     assert any(t["train_no"] == "12301" for t in trains)
+    first = trains[0]
+    assert "departure_time" in first
+    assert "arrival_time" in first
+    assert "stations" in first
 
 
 def test_recommendations_endpoint():
@@ -284,10 +288,38 @@ def test_book_ticket():
         assert "price" in body
         assert "booking_time" in body
         assert "validity" in body
+        assert "valid_from" in body
+        assert "valid_until" in body
+        assert "validity_status" in body
         assert "qr_url" in body
         assert body["status"] == "CONFIRMED"
         assert body["name"] == "Test User"
         assert body["age"] == 25
+
+
+def test_verify_ticket_endpoint():
+    response = client.post(
+        "/verify_ticket",
+        json={
+            "ticket": {
+                "ticket_id": "SM-TEST123",
+                "name": "Verifier",
+                "train_no": "12301",
+                "source": "Howrah",
+                "destination": "Asansol",
+                "coach": "S1",
+                "berth_no": 1,
+                "berth_type": "LB",
+                "valid_from": "00:00",
+                "valid_until": "23:59",
+            }
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ticket_id"] == "SM-TEST123"
+    assert body["name"] == "Verifier"
+    assert body["validity_status"] == "VALID"
 
 
 def test_book_ticket_with_email():
