@@ -70,10 +70,6 @@ BERTH_TYPES = ["LB", "MB", "UB", "SL", "SU"]   # Lower / Middle / Upper / Side-L
 # Helper functions
 # ---------------------------------------------------------------------------
 
-START_TIME_MINUTES = 6 * 60
-MIN_HOP_MINUTES = 35
-MAX_HOP_MINUTES = 70
-
 def _choose_status() -> str:
     """Return a random berth status according to configured weights."""
     population = list(STATUS_WEIGHTS.keys())
@@ -142,25 +138,6 @@ def _generate_coach(coach_name: str, route: list[str]) -> dict[str, Any]:
     }
 
 
-def _format_minutes_as_hhmm(total_minutes: int) -> str:
-    hours, minutes = divmod(total_minutes, 60)
-    return f"{hours % 24:02d}:{minutes:02d}"
-
-
-def _generate_station_schedule(route: list[str]) -> list[dict[str, str]]:
-    """Build ordered station arrival times for a route."""
-    current_minutes = START_TIME_MINUTES + random.randint(0, 90)
-    stations: list[dict[str, str]] = []
-    for index, station in enumerate(route):
-        if index > 0:
-            current_minutes += random.randint(MIN_HOP_MINUTES, MAX_HOP_MINUTES)
-        stations.append({
-            "code": station,
-            "arrival": _format_minutes_as_hhmm(current_minutes),
-        })
-    return stations
-
-
 def generate_train_data(seed: int | None = None) -> list[dict[str, Any]]:
     """
     Generate data for all configured trains and return it as a Python list.
@@ -181,7 +158,6 @@ def generate_train_data(seed: int | None = None) -> list[dict[str, Any]]:
             "train_no":   template["train_no"],
             "train_name": template["train_name"],
             "route":      template["route"],
-            "stations":   _generate_station_schedule(template["route"]),
             "coaches":    coaches,
         })
     return trains
