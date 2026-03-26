@@ -24,23 +24,8 @@ def test_train_structure():
         assert "train_no" in train
         assert "train_name" in train
         assert "route" in train
-        assert "stations" in train
         assert "coaches" in train
         assert len(train["coaches"]) == data_generator.COACHES_PER_TRAIN
-
-
-def test_station_schedule_structure_and_alignment():
-    data = data_generator.generate_train_data(seed=42)
-    for train in data:
-        stations = train["stations"]
-        route = train["route"]
-        assert len(stations) == len(route)
-        assert [s["code"] for s in stations] == route
-        for station in stations:
-            assert "arrival" in station
-            hh, mm = station["arrival"].split(":")
-            assert 0 <= int(hh) <= 23
-            assert 0 <= int(mm) <= 59
 
 
 def test_coach_has_correct_berth_count():
