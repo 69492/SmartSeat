@@ -891,8 +891,8 @@
       return isNaN(dt.getTime()) ? null : dt;
     }
 
-    function shouldShowBookingQr(validFrom, validUntil, nowDate) {
-      const now = nowDate || new Date();
+    function shouldShowBookingQr(validFrom, validUntil, referenceTime) {
+      const now = referenceTime || new Date();
       const from = parseIsoTime(validFrom);
       const until = parseIsoTime(validUntil);
       if (!from || !until) return false;
@@ -953,6 +953,7 @@
             qrImg.alt = "Ticket QR Code: " + (booking.ticket_id || "—");
             qrImg.loading = "lazy";
             qrImg.addEventListener("error", function () {
+              console.warn("Unable to load QR image for ticket:", booking.ticket_id || "unknown");
               qrSection.remove();
             });
             qrSection.appendChild(qrImg);
