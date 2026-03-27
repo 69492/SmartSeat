@@ -358,6 +358,14 @@
       width: 100%;
       max-width: 200px;
     }
+    .booking-status {
+      margin-top: 8px;
+      font-weight: 700;
+      font-size: .9rem;
+    }
+    .booking-status-pending { color: #a16207; }
+    .booking-status-valid { color: #166534; }
+    .booking-status-expired { color: #b91c1c; }
     @media (max-width: 700px) {
       .booking-card-content {
         flex-direction: column;
@@ -393,6 +401,31 @@
       font-size: .78rem;
       color: #94a3b8;
       font-weight: 500;
+    }
+    textarea {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: .925rem;
+      background: #f8fafc;
+      color: #334155;
+      transition: border-color .2s, box-shadow .2s, background-color .2s;
+      resize: vertical;
+      min-height: 120px;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+      background-color: #fff;
+    }
+    .verify-result {
+      margin-top: 12px;
+    }
+    .verify-status {
+      margin-top: 10px;
+      font-weight: 700;
     }
 
     /* ---------- Text input ---------- */
@@ -710,6 +743,21 @@
       <div id="previous-bookings-list" class="booking-list"></div>
       <button id="close-previous-btn" class="btn btn-primary" style="margin-top:14px">Close</button>
     </div>
+
+    <div id="verify-panel" class="card">
+      <h2>
+        <svg class="h2-icon" viewBox="0 0 24 24" fill="none" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h3v3H7z"/><path d="M14 7h3v3h-3z"/><path d="M7 14h3v3H7z"/><path d="M14 14h3v3h-3z"/>
+        </svg>
+        QR Verification
+      </h2>
+      <div class="form-group">
+        <label for="verify-text">Paste scanned QR ticket text</label>
+        <textarea id="verify-text" placeholder="Paste SmartSeat Ticket text from scanner"></textarea>
+      </div>
+      <button id="verify-btn" class="btn btn-primary" type="button">Verify Ticket</button>
+      <div id="verify-result" class="verify-result" style="display:none"></div>
+    </div>
   </main>
 
   <div id="passenger-modal" class="modal-backdrop" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="passenger-modal-title">
@@ -764,6 +812,9 @@
     const previousBookingsList = document.getElementById("previous-bookings-list");
     const previousBookingsEmpty = document.getElementById("previous-bookings-empty");
     const closePreviousBtn = document.getElementById("close-previous-btn");
+    const verifyBtn = document.getElementById("verify-btn");
+    const verifyText = document.getElementById("verify-text");
+    const verifyResult = document.getElementById("verify-result");
 
     /* Booking flow panels */
     const proceedBtn        = document.getElementById("proceed-btn");
@@ -867,6 +918,8 @@
         destination: data.destination,
         price: data.price,
         timestamp: Date.now(),
+        valid_from: data.valid_from || "",
+        valid_until: data.valid_until || "",
         qr_image: getBookingQrImage(data),
       });
       writeBookingsToStorage(bookings);
@@ -880,6 +933,48 @@
     function formatBookingTime(timestamp) {
       const date = new Date(timestamp);
       return isNaN(date.getTime()) ? "—" : date.toLocaleString();
+    }
+
+    function parseIsoTime(value) {
+      if (!value) return null;
+      const dt = new Date(value);
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+
+    function getTicketValidityState(validFrom, validUntil, nowDate) {
+      const now = nowDate || new Date();
+      const from = parseIsoTime(validFrom);
+      const until = parseIsoTime(validUntil);
+      if (!from || !until) {
+        return {
+          key: "unknown",
+          showQr: true,
+          message: "Ticket status unavailable",
+          className: "booking-status-pending",
+        };
+      }
+      if (now < from) {
+        return {
+          key: "not_yet_valid",
+          showQr: false,
+          message: "Ticket not yet valid",
+          className: "booking-status-pending",
+        };
+      }
+      if (now <= until) {
+        return {
+          key: "valid",
+          showQr: true,
+          message: "Ticket Valid",
+          className: "booking-status-valid",
+        };
+      }
+      return {
+        key: "expired",
+        showQr: false,
+        message: "Ticket Expired",
+        className: "booking-status-expired",
+      };
     }
 
     function renderPreviousBookings(bookings) {
@@ -926,8 +1021,13 @@
           addBookingLine(detailsSection, "Seat", formatSeatInfo(booking));
           addBookingLine(detailsSection, "Price", booking.price != null ? "₹" + booking.price : "—");
           addBookingLine(detailsSection, "Booked At", formatBookingTime(booking.timestamp));
+          const validityState = getTicketValidityState(booking.valid_from, booking.valid_until);
+          const statusLine = document.createElement("p");
+          statusLine.className = "booking-status " + validityState.className;
+          statusLine.textContent = validityState.message;
+          detailsSection.appendChild(statusLine);
           cardContent.appendChild(detailsSection);
-          if (booking.qr_image) {
+          if (booking.qr_image && validityState.showQr) {
             const qrSection = document.createElement("div");
             qrSection.className = "booking-qr-section";
             const qrImg = document.createElement("img");
@@ -971,6 +1071,69 @@
         .catch(function () {
           alert("Unable to download QR code. Please try again.");
         });
+    }
+
+    function parseQrTicketText(text) {
+      if (!text) return null;
+      const lines = text.split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean);
+      if (!lines.length || lines[0] !== "SmartSeat Ticket") return null;
+      const fields = {};
+      lines.forEach(function (line) {
+        const idx = line.indexOf(":");
+        if (idx <= 0) return;
+        const key = line.slice(0, idx).trim().toLowerCase();
+        fields[key] = line.slice(idx + 1).trim();
+      });
+      return {
+        ticket_id: fields["ticket id"] || "",
+        name: fields["passenger"] || "",
+        train_no: fields["train"] || "",
+        source: fields["from"] || "",
+        destination: fields["to"] || "",
+        coach: fields["coach"] || "",
+        berth_no: fields["berth no"] || "",
+        berth_type: fields["berth type"] || "",
+        status: fields["status"] || "",
+      };
+    }
+
+    function resolveStoredValidityForTicket(ticketId) {
+      if (!ticketId) return null;
+      const bookings = cleanupExpiredBookings();
+      return bookings.find(function (b) { return b.ticket_id === ticketId; }) || null;
+    }
+
+    function renderVerificationResult(ticket, validityState, validFrom, validUntil) {
+      verifyResult.innerHTML = "";
+      const table = document.createElement("table");
+      table.className = "result-table";
+
+      function addRow(label, value) {
+        const tr = document.createElement("tr");
+        const th = document.createElement("th");
+        const td = document.createElement("td");
+        th.textContent = label;
+        td.textContent = value || "—";
+        tr.appendChild(th);
+        tr.appendChild(td);
+        table.appendChild(tr);
+      }
+
+      addRow("Ticket ID", ticket.ticket_id);
+      addRow("Passenger", ticket.name);
+      addRow("Train", ticket.train_no);
+      addRow("Journey", (ticket.source || "—") + " → " + (ticket.destination || "—"));
+      addRow("Seat", (ticket.coach || "—") + " • Berth " + (ticket.berth_no || "—") + " (" + (ticket.berth_type || "—") + ")");
+      addRow("Valid From", validFrom);
+      addRow("Valid Until", validUntil);
+      addRow("Status", ticket.status);
+      verifyResult.appendChild(table);
+
+      const status = document.createElement("p");
+      status.className = "verify-status " + validityState.className;
+      status.textContent = validityState.message;
+      verifyResult.appendChild(status);
+      verifyResult.style.display = "block";
     }
 
     function renderBookingConfirmation(data, options) {
@@ -1381,6 +1544,25 @@
     document.getElementById("download-qr-btn").addEventListener("click", function () {
       const img = document.getElementById("conf-qr-img");
       downloadQrImage(img.src, this.dataset.ticketId);
+    });
+
+    verifyBtn.addEventListener("click", function () {
+      const rawText = verifyText.value.trim();
+      if (!rawText) {
+        showError("Please paste scanned QR ticket text to verify.");
+        return;
+      }
+      hideAlerts();
+      const ticket = parseQrTicketText(rawText);
+      if (!ticket) {
+        showError("Invalid QR ticket format.");
+        return;
+      }
+      const stored = resolveStoredValidityForTicket(ticket.ticket_id);
+      const validFrom = stored ? (stored.valid_from || "—") : "—";
+      const validUntil = stored ? (stored.valid_until || "—") : "—";
+      const state = getTicketValidityState(stored && stored.valid_from, stored && stored.valid_until);
+      renderVerificationResult(ticket, state, validFrom, validUntil);
     });
 
     /* =================================================================

@@ -23,7 +23,7 @@ import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncGenerator
 
 from fastapi import FastAPI, HTTPException
@@ -47,6 +47,74 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 DATA_PATH = config.DATA_PATH
+
+
+def _station_arrival_map(train: dict[str, Any]) -> dict[str, str]:
+    """Build a case-insensitive station->arrival(HH:MM) map from train data."""
+    stations = train.get("stations")
+    if not isinstance(stations, list):
+        return {}
+    arrival_map: dict[str, str] = {}
+    for station in stations:
+        if not isinstance(station, dict):
+            continue
+        code = str(station.get("code", "")).strip()
+        arrival = str(station.get("arrival", "")).strip()
+        if code and arrival:
+            arrival_map[code.lower()] = arrival
+    return arrival_map
+
+
+def _parse_arrival_hhmm(value: str) -> tuple[int, int] | None:
+    """Safely parse HH:MM; return None for invalid values."""
+    try:
+        hh_str, mm_str = value.split(":")
+        hh = int(hh_str)
+        mm = int(mm_str)
+    except (TypeError, ValueError):
+        return None
+    if not (0 <= hh <= 23 and 0 <= mm <= 59):
+        return None
+    return hh, mm
+
+
+def calculate_ticket_validity_window(
+    train_no: str,
+    source: str,
+    destination: str,
+    data_path: str = DATA_PATH,
+    now_utc: datetime | None = None,
+) -> tuple[str, str]:
+    """
+    Calculate validity window from source arrival to destination arrival + 5 minutes.
+
+    Returns ISO-8601 UTC timestamps as (valid_from, valid_until).
+    """
+    data = data_generator.load_train_data(data_path)
+    train = next((t for t in data if t.get("train_no") == train_no), None)
+    if not train:
+        raise ValueError(f"Train not found: {train_no}")
+
+    arrivals = _station_arrival_map(train)
+    src_hhmm = arrivals.get(source.lower())
+    dst_hhmm = arrivals.get(destination.lower())
+    if not src_hhmm or not dst_hhmm:
+        raise ValueError("Timetable not available for selected stations.")
+
+    src_time = _parse_arrival_hhmm(src_hhmm)
+    dst_time = _parse_arrival_hhmm(dst_hhmm)
+    if not src_time or not dst_time:
+        raise ValueError("Invalid timetable format for selected stations.")
+
+    current = now_utc or datetime.now(timezone.utc)
+    src_dt = current.replace(hour=src_time[0], minute=src_time[1], second=0, microsecond=0)
+    dst_dt = current.replace(hour=dst_time[0], minute=dst_time[1], second=0, microsecond=0)
+    if dst_dt < src_dt:
+        dst_dt += timedelta(days=1)
+    valid_from = src_dt
+    valid_until = dst_dt + timedelta(minutes=5)
+
+    return valid_from.isoformat(), valid_until.isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -395,6 +463,17 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
     ticket_id = f"SM-{uuid.uuid4().hex[:8].upper()}"
     booking_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     price = config.TICKET_PRICE
+    try:
+        valid_from, valid_until = calculate_ticket_validity_window(
+            train_no=allocated["train_no"],
+            source=source,
+            destination=destination,
+            data_path=DATA_PATH,
+        )
+    except Exception:
+        now_dt = datetime.now(timezone.utc)
+        valid_from = now_dt.isoformat()
+        valid_until = (now_dt + timedelta(minutes=5)).isoformat()
 
     ticket = {
         "ticket_id":       ticket_id,
@@ -410,6 +489,8 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
         "allocation_type": allocated["allocation_type"],
         "price":           price,
         "booking_time":    booking_time,
+        "valid_from":      valid_from,
+        "valid_until":     valid_until,
         "validity":        f"Valid until arrival at {destination}",
         "status":          "CONFIRMED",
     }
@@ -441,6 +522,8 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
         "destination":  destination,
         "price":        price,
         "booking_time": booking_time,
+        "valid_from":   valid_from,
+        "valid_until":  valid_until,
         "validity":     f"Valid until arrival at {destination}",
         "status":       "CONFIRMED",
         "qr_url":       f"/qr/{qr_filename}" if qr_filename else None,
