@@ -470,7 +470,14 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
             destination=destination,
             data_path=DATA_PATH,
         )
-    except Exception:
+    except ValueError:
+        logger.exception(
+            "Failed to calculate timetable validity for train=%s, source=%s, destination=%s; "
+            "falling back to immediate short validity window.",
+            allocated["train_no"],
+            source,
+            destination,
+        )
         now_dt = datetime.now(timezone.utc)
         valid_from = now_dt.isoformat()
         valid_until = (now_dt + timedelta(minutes=5)).isoformat()

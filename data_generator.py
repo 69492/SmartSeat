@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 COACHES_PER_TRAIN = 4          # S1 … S4
 BERTHS_PER_COACH  = 72         # Standard sleeper coach
+FIRST_TRAIN_START_HOUR = 6
+TRAIN_START_HOUR_INCREMENT = 2
 
 # Weight probabilities for berth status
 STATUS_WEIGHTS = {
@@ -147,12 +149,16 @@ def _build_station_schedule(route: list[str], start_time: str = "09:00") -> list
       - code: station identifier used by booking flow (station name here)
       - arrival: HH:MM
     """
-    base_time = datetime.strptime(start_time, "%H:%M")
+    try:
+        base_time = datetime.strptime(start_time, "%H:%M")
+    except ValueError as exc:
+        raise ValueError(f"Invalid start_time '{start_time}'. Expected HH:MM format.") from exc
     schedule: list[dict[str, str]] = []
     current = base_time
     for idx, station in enumerate(route):
         if idx > 0:
-            # Deterministic interval pattern (realistic 35–50 min gaps)
+            # Deterministic gap durations between consecutive stations:
+            # 35, 40, 45, 50 minutes in a repeating cycle.
             current += timedelta(minutes=35 + ((idx - 1) % 4) * 5)
         schedule.append({
             "code": station,
@@ -177,7 +183,8 @@ def generate_train_data(seed: int | None = None) -> list[dict[str, Any]]:
     for index, template in enumerate(TRAIN_ROUTES):
         coach_names = [f"S{i}" for i in range(1, COACHES_PER_TRAIN + 1)]
         coaches     = [_generate_coach(name, template["route"]) for name in coach_names]
-        start_hour = 6 + (index * 2)
+        # Stagger train starts: 06:00, 08:00, 10:00, ...
+        start_hour = FIRST_TRAIN_START_HOUR + (index * TRAIN_START_HOUR_INCREMENT)
         trains.append({
             "train_no":   template["train_no"],
             "train_name": template["train_name"],
