@@ -283,6 +283,8 @@ def test_book_ticket():
         assert body["seat_details"]["train_no"] == "12301"
         assert "price" in body
         assert "booking_time" in body
+        assert "valid_from" in body
+        assert "valid_until" in body
         assert "validity" in body
         assert "qr_url" in body
         assert body["status"] == "CONFIRMED"
