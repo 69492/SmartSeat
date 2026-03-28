@@ -1090,15 +1090,7 @@
       document.getElementById("conf-journey").textContent   = data.source + "  →  " + data.destination;
       document.getElementById("conf-price").textContent     = "₹" + data.price;
       document.getElementById("conf-time").textContent      = data.booking_time;
-      const confValidUntil = getBookingValidUntil({
-        train_no: data.seat_details.train_no,
-        source: data.source,
-        destination: data.destination,
-        station_count: getJourneyStationCount(data.seat_details.train_no, data.source, data.destination),
-        start_time: new Date().toISOString(),
-        valid_until: data.valid_until || "",
-        valid_from: data.valid_from || "",
-      });
+      const confValidUntil = data.valid_until || "";
       const restoreNote = document.getElementById("conf-restore-note");
       if (options && options.restoreMessage) {
         restoreNote.textContent = options.restoreMessage;
