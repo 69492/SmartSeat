@@ -320,9 +320,23 @@
       justify-content: space-between;
       gap: 16px;
     }
+    .ticket-card {
+      display: flex;
+      gap: 20px;
+    }
+    .ticket-card.with-qr {
+      flex-direction: row;
+    }
+    .ticket-card.no-qr {
+      flex-direction: column;
+    }
     .booking-details-section {
       flex: 1 1 auto;
       min-width: 0;
+    }
+    .ticket-card.no-qr .booking-details-section {
+      flex: 1 1 100%;
+      width: 100%;
     }
     .booking-card h3 {
       font-size: .97rem;
@@ -851,10 +865,50 @@
       return /^https?:\/\//i.test(data.qr_url) ? data.qr_url : (API_BASE + data.qr_url);
     }
 
+    function getRouteForTrain(trainNo) {
+      const matchedTrain = matchedTrains.find(function (t) { return t.train_no === trainNo; });
+      if (matchedTrain && Array.isArray(matchedTrain.route)) return matchedTrain.route;
+      const cachedTrain = trainsData.find(function (t) { return t.train_no === trainNo; });
+      if (cachedTrain && Array.isArray(cachedTrain.route)) return cachedTrain.route;
+      return null;
+    }
+
+    function getJourneyStationCount(trainNo, source, destination) {
+      const route = getRouteForTrain(trainNo);
+      if (!route || !source || !destination) return null;
+      const srcIdx = route.indexOf(source);
+      const dstIdx = route.indexOf(destination);
+      if (srcIdx < 0 || dstIdx < 0 || dstIdx <= srcIdx) return null;
+      return dstIdx - srcIdx + 1;
+    }
+
+    function calculateJourneyDurationMinutes(stationCount) {
+      if (!Number.isFinite(stationCount) || stationCount <= 0) return null;
+      // Per requirement: travel + halt duration, in minutes.
+      const TRAVEL_TIME_PER_GAP_MINUTES = 20;
+      const HALT_TIME_PER_STATION_MINUTES = 3;
+      return ((stationCount - 1) * TRAVEL_TIME_PER_GAP_MINUTES) + (stationCount * HALT_TIME_PER_STATION_MINUTES);
+    }
+
+    function calculateTicketValidUntil(startTime, stationCount) {
+      const start = startTime instanceof Date ? startTime : new Date(startTime);
+      if (isNaN(start.getTime())) return "";
+      const totalMinutes = calculateJourneyDurationMinutes(stationCount);
+      if (!Number.isFinite(totalMinutes)) return "";
+      return new Date(start.getTime() + (totalMinutes * 60 * 1000)).toISOString();
+    }
+
     function saveBooking(data) {
       if (!data || !data.seat_details || !data.ticket_id) {
         return;
       }
+      const startTime = new Date();
+      const stationCount = getJourneyStationCount(
+        data.seat_details.train_no,
+        data.source,
+        data.destination
+      );
+      const computedValidUntil = calculateTicketValidUntil(startTime, stationCount);
       const bookings = cleanupExpiredBookings();
       bookings.push({
         ticket_id: data.ticket_id,
@@ -868,8 +922,10 @@
         destination: data.destination,
         price: data.price,
         timestamp: Date.now(),
+        start_time: startTime.toISOString(),
+        station_count: stationCount,
         valid_from: data.valid_from || "",
-        valid_until: data.valid_until || "",
+        valid_until: computedValidUntil || data.valid_until || "",
         qr_image: getBookingQrImage(data),
       });
       writeBookingsToStorage(bookings);
@@ -891,12 +947,28 @@
       return isNaN(dt.getTime()) ? null : dt;
     }
 
-    function shouldShowBookingQr(validFrom, validUntil, referenceTime) {
-      const now = referenceTime || new Date();
-      const from = parseIsoTime(validFrom);
+    function getBookingValidUntil(booking) {
+      // Fallback precedence:
+      // 1) keep stored valid_until if parseable
+      // 2) recompute from start_time (or valid_from) + station_count
+      // 3) recompute station_count from route and then derive valid_until
+      if (!booking) return "";
+      if (parseIsoTime(booking.valid_until)) return booking.valid_until;
+      const start = parseIsoTime(booking.start_time) || parseIsoTime(booking.valid_from);
+      if (!start) return "";
+      const stationCount = Number(booking.station_count);
+      if (Number.isFinite(stationCount) && stationCount > 0) {
+        return calculateTicketValidUntil(start, stationCount);
+      }
+      const fallbackCount = getJourneyStationCount(booking.train_no, booking.source, booking.destination);
+      return calculateTicketValidUntil(start, fallbackCount);
+    }
+
+    function isTicketValid(validUntil) {
+      // Requirement defines validity as "current time < valid_until".
       const until = parseIsoTime(validUntil);
-      if (!from || !until) return false;
-      return now >= from && now <= until;
+      if (!until) return false;
+      return new Date() < until;
     }
 
     function renderPreviousBookings(bookings) {
@@ -932,6 +1004,7 @@
           card.className = "booking-card";
           const cardContent = document.createElement("div");
           cardContent.className = "booking-card-content";
+          cardContent.classList.add("ticket-card");
           const detailsSection = document.createElement("div");
           detailsSection.className = "booking-details-section";
           const heading = document.createElement("h3");
@@ -944,7 +1017,10 @@
           addBookingLine(detailsSection, "Price", booking.price != null ? "₹" + booking.price : "—");
           addBookingLine(detailsSection, "Booked At", formatBookingTime(booking.timestamp));
           cardContent.appendChild(detailsSection);
-          if (shouldShowBookingQr(booking.valid_from, booking.valid_until) && booking.qr_image) {
+          const effectiveValidUntil = getBookingValidUntil(booking);
+          const shouldRenderQr = isTicketValid(effectiveValidUntil) && booking.qr_image;
+          cardContent.classList.add(shouldRenderQr ? "with-qr" : "no-qr");
+          if (shouldRenderQr) {
             const qrSection = document.createElement("div");
             qrSection.className = "booking-qr-section";
             const qrImg = document.createElement("img");
@@ -954,6 +1030,8 @@
             qrImg.loading = "lazy";
             qrImg.addEventListener("error", function () {
               console.warn("Unable to load QR image for ticket:", booking.ticket_id || "unknown");
+              cardContent.classList.remove("with-qr");
+              cardContent.classList.add("no-qr");
               qrSection.remove();
             });
             qrSection.appendChild(qrImg);
