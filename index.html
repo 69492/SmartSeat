@@ -866,10 +866,10 @@
     }
 
     function getRouteForTrain(trainNo) {
-      const matched = matchedTrains.find(function (t) { return t.train_no === trainNo; });
-      if (matched && Array.isArray(matched.route)) return matched.route;
-      const cached = trainsData.find(function (t) { return t.train_no === trainNo; });
-      if (cached && Array.isArray(cached.route)) return cached.route;
+      const matchedTrain = matchedTrains.find(function (t) { return t.train_no === trainNo; });
+      if (matchedTrain && Array.isArray(matchedTrain.route)) return matchedTrain.route;
+      const cachedTrain = trainsData.find(function (t) { return t.train_no === trainNo; });
+      if (cachedTrain && Array.isArray(cachedTrain.route)) return cachedTrain.route;
       return null;
     }
 
@@ -879,12 +879,15 @@
       const srcIdx = route.indexOf(source);
       const dstIdx = route.indexOf(destination);
       if (srcIdx < 0 || dstIdx < 0 || dstIdx <= srcIdx) return null;
-      return (dstIdx - srcIdx) + 1;
+      return dstIdx - srcIdx + 1;
     }
 
     function calculateJourneyDurationMinutes(stationCount) {
       if (!Number.isFinite(stationCount) || stationCount <= 0) return null;
-      return ((stationCount - 1) * 20) + (stationCount * 3);
+      // Per requirement: travel + halt duration, in minutes.
+      const TRAVEL_TIME_PER_GAP_MINUTES = 20;
+      const HALT_TIME_PER_STATION_MINUTES = 3;
+      return ((stationCount - 1) * TRAVEL_TIME_PER_GAP_MINUTES) + (stationCount * HALT_TIME_PER_STATION_MINUTES);
     }
 
     function calculateTicketValidUntil(startTime, stationCount) {
@@ -945,6 +948,10 @@
     }
 
     function getBookingValidUntil(booking) {
+      // Fallback precedence:
+      // 1) keep stored valid_until if parseable
+      // 2) recompute from start_time (or valid_from) + station_count
+      // 3) recompute station_count from route and then derive valid_until
       if (!booking) return "";
       if (parseIsoTime(booking.valid_until)) return booking.valid_until;
       const start = parseIsoTime(booking.start_time) || parseIsoTime(booking.valid_from);
@@ -957,8 +964,9 @@
       return calculateTicketValidUntil(start, fallbackCount);
     }
 
-    function isTicketValid(valid_until) {
-      const until = parseIsoTime(valid_until);
+    function isTicketValid(validUntil) {
+      // Requirement defines validity as "current time < valid_until".
+      const until = parseIsoTime(validUntil);
       if (!until) return false;
       return new Date() < until;
     }
