@@ -1012,12 +1012,14 @@
       bookings
         .slice()
         .sort(function (a, b) { return b.timestamp - a.timestamp; })
-        .forEach(function (booking) {
+        .forEach(function (storedBooking) {
+          const booking = Object.assign({}, storedBooking, {
+            qr_image: storedBooking.qr_image || getBookingQrImage(storedBooking),
+          });
           const card = document.createElement("div");
           card.className = "booking-card";
           const effectiveValidUntil = getBookingValidUntil(booking);
           const isValid = isTicketValid(effectiveValidUntil);
-          const bookingQrImage = getBookingQrImage(booking);
           card.classList.add(isValid ? "valid" : "invalid");
           const cardContent = document.createElement("div");
           cardContent.className = "booking-card-content";
@@ -1035,9 +1037,6 @@
           addBookingLine(detailsSection, "Booked At", formatBookingTime(booking.timestamp));
           addBookingLine(detailsSection, "Valid upto", formatValidUntil(effectiveValidUntil));
           cardContent.appendChild(detailsSection);
-          if (!booking.qr_image && bookingQrImage) {
-            booking.qr_image = bookingQrImage;
-          }
           const shouldRenderQr = isValid && booking.qr_image;
           cardContent.classList.add(shouldRenderQr ? "with-qr" : "no-qr");
           if (shouldRenderQr) {
