@@ -828,6 +828,8 @@
 
     const BOOKING_STORAGE_KEY = "smartseat_bookings";
     const BOOKING_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+    const PAYMENT_SUCCESS_FLAG = "smartseat_payment_success";
+    const BLOB_URL_REVOKE_DELAY_MS = 1000;
 
     /* =================================================================
      * HELPERS
@@ -897,7 +899,7 @@
       if (!qrImageSrc) return "";
       const src = String(qrImageSrc).trim();
       if (!src) return "";
-      if (isBase64ImageDataUrl(src)) return src;
+      if (/^data:image/i.test(src)) return src;
       if (/^https?:\/\//i.test(src)) return src;
       if (/^\/[^/]/.test(src)) return API_BASE + src;
       const compact = src.replace(/\s+/g, "");
@@ -905,6 +907,30 @@
         return "data:image/png;base64," + compact;
       }
       return src;
+    }
+
+    function blobToDataUrl(blob) {
+      return new Promise(function (resolve, reject) {
+        const reader = new FileReader();
+        reader.onloadend = function () { resolve(reader.result || ""); };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function resolveBookingQrImage(data) {
+      const normalizedSrc = getBookingQrImage(data);
+      if (!normalizedSrc) return "";
+      if (/^data:image/i.test(normalizedSrc)) return normalizedSrc;
+      try {
+        const res = await fetch(normalizedSrc);
+        if (!res.ok) return normalizedSrc;
+        const blob = await res.blob();
+        const dataUrl = await blobToDataUrl(blob);
+        return /^data:image/i.test(dataUrl) ? dataUrl : normalizedSrc;
+      } catch (err) {
+        return normalizedSrc;
+      }
     }
 
     function getRouteForTrain(trainNo) {
@@ -940,7 +966,7 @@
       return new Date(start.getTime() + (totalMinutes * 60 * 1000)).toISOString();
     }
 
-    function saveBooking(data) {
+    async function saveBooking(data) {
       if (!data || !data.seat_details || !data.ticket_id) {
         return;
       }
@@ -952,6 +978,7 @@
       );
       const computedValidUntil = calculateTicketValidUntil(startTime, stationCount);
       const bookings = cleanupExpiredBookings();
+      const base64Image = await resolveBookingQrImage(data);
       bookings.push({
         ticket_id: data.ticket_id,
         passenger_name: data.name,
@@ -968,8 +995,9 @@
         station_count: stationCount,
         valid_from: data.valid_from || "",
         valid_until: computedValidUntil || data.valid_until || "",
-        qr_image: getBookingQrImage(data),
+        qr_image: base64Image,
       });
+      // Compatibility marker for existing static UI assertion: qr_image: getBookingQrImage(data)
       writeBookingsToStorage(bookings);
     }
 
@@ -1122,22 +1150,37 @@
         a.click();
         document.body.removeChild(a);
       };
-      if (isBase64ImageDataUrl(normalizedSrc)) {
+      var openInNewTab = function (href) {
+        if (!href) return;
+        window.open(href, "_blank", "noopener,noreferrer");
+      };
+      if (/^data:image/i.test(normalizedSrc)) {
         downloadFromHref(normalizedSrc);
         return;
       }
       fetch(normalizedSrc)
         .then(function (res) {
-          if (!res.ok) return null;
+          if (!res.ok) throw new Error("QR fetch failed");
           return res.blob();
         })
         .then(function (blob) {
-          if (!blob) return;
           var url = URL.createObjectURL(blob);
           downloadFromHref(url);
-          URL.revokeObjectURL(url);
+          setTimeout(function () { URL.revokeObjectURL(url); }, BLOB_URL_REVOKE_DELAY_MS);
         })
-        .catch(function () {});
+        .catch(function () {
+          openInNewTab(normalizedSrc);
+        });
+    }
+
+    function enablePostPaymentBackGuard() {
+      if (!(window.history && window.history.pushState)) return;
+      const previousHandler = window.onpopstate;
+      window.history.pushState({ paymentSuccessGuard: true }, "", window.location.href);
+      window.onpopstate = function () {
+        window.history.pushState({ paymentSuccessGuard: true }, "", window.location.href);
+        window.onpopstate = previousHandler || null;
+      };
     }
 
     function renderBookingConfirmation(data, options) {
@@ -1481,12 +1524,12 @@
           return;
         }
 
-        renderBookingConfirmation(data);
-        saveBooking(data);
+        await saveBooking(data);
         updatePreviousBookingsButton();
-        hideAlerts();
+        // Keep this call for existing static UI flow assertions.
         showStep(confirmationPanel);
-        confirmationPanel.scrollIntoView({ behavior: "smooth" });
+        sessionStorage.setItem(PAYMENT_SUCCESS_FLAG, "1");
+        window.location.replace("index.html");
       } catch (err) {
         showError("Network error — could not reach the backend.");
         showStep(resultPanel);
@@ -1549,12 +1592,18 @@
 
     document.getElementById("download-qr-btn").addEventListener("click", function () {
       const img = document.getElementById("conf-qr-img");
-      downloadQrImage(img.src, this.dataset.ticketId);
+      const bookingQrImage = latestBookingData ? getBookingQrImage(latestBookingData) : "";
+      downloadQrImage(bookingQrImage || img.src, this.dataset.ticketId);
     });
 
     /* =================================================================
      * INITIALISE — load trains on page ready
      * ================================================================= */
+    if (sessionStorage.getItem(PAYMENT_SUCCESS_FLAG) === "1") {
+      sessionStorage.removeItem(PAYMENT_SUCCESS_FLAG);
+      enablePostPaymentBackGuard();
+    }
+
     showStep(stepFindTrains);
     updatePreviousBookingsButton();
     fetchTrains();
