@@ -314,6 +314,14 @@
       background: #f8fafc;
       padding: 14px;
     }
+    .booking-card.valid {
+      border-color: #22c55e;
+      background: #f0fdf4;
+    }
+    .booking-card.invalid {
+      border-color: #f1f5f9;
+      background: #f8fafc;
+    }
     .booking-card-content {
       display: flex;
       align-items: flex-start;
@@ -1004,9 +1012,15 @@
       bookings
         .slice()
         .sort(function (a, b) { return b.timestamp - a.timestamp; })
-        .forEach(function (booking) {
+        .forEach(function (storedBooking) {
+          const booking = Object.assign({}, storedBooking, {
+            qr_image: storedBooking.qr_image || getBookingQrImage(storedBooking),
+          });
           const card = document.createElement("div");
           card.className = "booking-card";
+          const effectiveValidUntil = getBookingValidUntil(booking);
+          const isValid = isTicketValid(effectiveValidUntil);
+          card.classList.add(isValid ? "valid" : "invalid");
           const cardContent = document.createElement("div");
           cardContent.className = "booking-card-content";
           cardContent.classList.add("ticket-card");
@@ -1021,10 +1035,9 @@
           addBookingLine(detailsSection, "Seat", formatSeatInfo(booking));
           addBookingLine(detailsSection, "Price", booking.price != null ? "₹" + booking.price : "—");
           addBookingLine(detailsSection, "Booked At", formatBookingTime(booking.timestamp));
-          const effectiveValidUntil = getBookingValidUntil(booking);
           addBookingLine(detailsSection, "Valid upto", formatValidUntil(effectiveValidUntil));
           cardContent.appendChild(detailsSection);
-          const shouldRenderQr = isTicketValid(effectiveValidUntil) && booking.qr_image;
+          const shouldRenderQr = isValid && booking.qr_image;
           cardContent.classList.add(shouldRenderQr ? "with-qr" : "no-qr");
           if (shouldRenderQr) {
             const qrSection = document.createElement("div");
