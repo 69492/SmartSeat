@@ -889,11 +889,15 @@
       return /^https?:\/\//i.test(data.qr_url) ? data.qr_url : (API_BASE + data.qr_url);
     }
 
+    function isBase64ImageDataUrl(value) {
+      return /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(value || "");
+    }
+
     function normalizeQrImageSource(qrImageSrc) {
       if (!qrImageSrc) return "";
       const src = String(qrImageSrc).trim();
       if (!src) return "";
-      if (/^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(src)) return src;
+      if (isBase64ImageDataUrl(src)) return src;
       if (/^https?:\/\//i.test(src)) return src;
       if (/^\/[^/]/.test(src)) return API_BASE + src;
       const compact = src.replace(/\s+/g, "");
@@ -1118,7 +1122,7 @@
         a.click();
         document.body.removeChild(a);
       };
-      if (/^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(normalizedSrc)) {
+      if (isBase64ImageDataUrl(normalizedSrc)) {
         downloadFromHref(normalizedSrc);
         return;
       }
