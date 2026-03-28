@@ -878,7 +878,7 @@
       if (!route || !source || !destination) return null;
       const srcIdx = route.indexOf(source);
       const dstIdx = route.indexOf(destination);
-      if (srcIdx < 0 || dstIdx < 0 || dstIdx < srcIdx) return null;
+      if (srcIdx < 0 || dstIdx < 0 || dstIdx <= srcIdx) return null;
       return (dstIdx - srcIdx) + 1;
     }
 
@@ -961,13 +961,6 @@
       const until = parseIsoTime(valid_until);
       if (!until) return false;
       return new Date() < until;
-    }
-
-    function shouldShowBookingQr(validFrom, validUntil, referenceTime) {
-      const effectiveUntil = parseIsoTime(validUntil);
-      if (!effectiveUntil) return false;
-      const now = referenceTime || new Date();
-      return now < effectiveUntil;
     }
 
     function renderPreviousBookings(bookings) {
