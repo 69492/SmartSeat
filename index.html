@@ -330,7 +330,10 @@
     }
     .ticket-card {
       display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
       gap: 20px;
+      transition: flex-direction .25s ease, gap .25s ease;
     }
     .ticket-card.with-qr {
       flex-direction: row;
@@ -344,6 +347,10 @@
     }
     .ticket-card.no-qr .booking-details-section {
       flex: 1 1 100%;
+      width: 100%;
+    }
+    .ticket-card.with-qr .booking-details-section {
+      flex: 1 1 auto;
       width: 100%;
     }
     .booking-card h3 {
@@ -380,13 +387,22 @@
       width: 100%;
       max-width: 200px;
     }
+    #confirmation-panel .qr-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
     @media (max-width: 700px) {
-      .booking-card-content {
+      .ticket-card.with-qr {
         flex-direction: column;
       }
       .booking-qr-section {
         width: 100%;
         align-items: flex-start;
+      }
+      .booking-qr-download-btn {
+        max-width: 240px;
       }
     }
     .booking-empty {
@@ -868,9 +884,27 @@
 
     function getBookingQrImage(data) {
       if (!data) return "";
-      if (data.qr_image) return data.qr_image;
+      if (data.qr_image) return normalizeQrImageSource(data.qr_image);
       if (!data.qr_url) return "";
       return /^https?:\/\//i.test(data.qr_url) ? data.qr_url : (API_BASE + data.qr_url);
+    }
+
+    function isBase64ImageDataUrl(value) {
+      return /^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(value || "");
+    }
+
+    function normalizeQrImageSource(qrImageSrc) {
+      if (!qrImageSrc) return "";
+      const src = String(qrImageSrc).trim();
+      if (!src) return "";
+      if (isBase64ImageDataUrl(src)) return src;
+      if (/^https?:\/\//i.test(src)) return src;
+      if (/^\/[^/]/.test(src)) return API_BASE + src;
+      const compact = src.replace(/\s+/g, "");
+      if (/^[A-Za-z0-9+/=]+$/.test(compact) && compact.length > 64) {
+        return "data:image/png;base64," + compact;
+      }
+      return src;
     }
 
     function getRouteForTrain(trainNo) {
@@ -1011,10 +1045,15 @@
       previousBookingsEmpty.style.display = "none";
       bookings
         .slice()
-        .sort(function (a, b) { return b.timestamp - a.timestamp; })
+        .sort(function (a, b) {
+          const aValid = isTicketValid(getBookingValidUntil(a));
+          const bValid = isTicketValid(getBookingValidUntil(b));
+          if (aValid !== bValid) return aValid ? -1 : 1;
+          return (b.timestamp || 0) - (a.timestamp || 0);
+        })
         .forEach(function (storedBooking) {
           const booking = Object.assign({}, storedBooking, {
-            qr_image: storedBooking.qr_image || getBookingQrImage(storedBooking),
+            qr_image: normalizeQrImageSource(storedBooking.qr_image || getBookingQrImage(storedBooking)),
           });
           const card = document.createElement("div");
           card.className = "booking-card";
@@ -1048,7 +1087,6 @@
             qrImg.alt = "Ticket QR Code: " + (booking.ticket_id || "—");
             qrImg.loading = "lazy";
             qrImg.addEventListener("error", function () {
-              console.warn("Unable to load QR image for ticket:", booking.ticket_id || "unknown");
               cardContent.classList.remove("with-qr");
               cardContent.classList.add("no-qr");
               qrSection.remove();
@@ -1071,24 +1109,35 @@
     }
 
     function downloadQrImage(qrImageSrc, ticketId) {
-      if (!qrImageSrc) return;
+      const normalizedSrc = normalizeQrImageSource(qrImageSrc);
+      if (!normalizedSrc) return;
       const safeTicketId = String(ticketId || "QR").replace(/[^A-Za-z0-9_-]/g, "_");
       const fileName = "SmartSeat_Ticket_" + safeTicketId + ".png";
-      fetch(qrImageSrc)
-        .then(function (res) { return res.blob(); })
+      var downloadFromHref = function (href) {
+        if (!href) return;
+        var a = document.createElement("a");
+        a.href = href;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      };
+      if (isBase64ImageDataUrl(normalizedSrc)) {
+        downloadFromHref(normalizedSrc);
+        return;
+      }
+      fetch(normalizedSrc)
+        .then(function (res) {
+          if (!res.ok) return null;
+          return res.blob();
+        })
         .then(function (blob) {
+          if (!blob) return;
           var url = URL.createObjectURL(blob);
-          var a = document.createElement("a");
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+          downloadFromHref(url);
           URL.revokeObjectURL(url);
         })
-        .catch(function () {
-          alert("Unable to download QR code. Please try again.");
-        });
+        .catch(function () {});
     }
 
     function renderBookingConfirmation(data, options) {
@@ -1114,8 +1163,9 @@
       }
 
       const confQr = document.getElementById("conf-qr-wrapper");
-      if (data.qr_url && isTicketValid(confValidUntil)) {
-        document.getElementById("conf-qr-img").src = API_BASE + data.qr_url;
+      const qrImageSrc = getBookingQrImage(data);
+      if (qrImageSrc && isTicketValid(confValidUntil)) {
+        document.getElementById("conf-qr-img").src = qrImageSrc;
         document.getElementById("download-qr-btn").dataset.ticketId = data.ticket_id || "";
         confQr.style.display = "block";
       } else {
