@@ -941,6 +941,11 @@
       return isNaN(date.getTime()) ? "—" : date.toLocaleString();
     }
 
+    function formatValidUntil(value) {
+      const dt = parseIsoTime(value);
+      return dt ? dt.toLocaleString() : "—";
+    }
+
     function parseIsoTime(value) {
       if (!value) return null;
       const dt = new Date(value);
@@ -1016,8 +1021,9 @@
           addBookingLine(detailsSection, "Seat", formatSeatInfo(booking));
           addBookingLine(detailsSection, "Price", booking.price != null ? "₹" + booking.price : "—");
           addBookingLine(detailsSection, "Booked At", formatBookingTime(booking.timestamp));
-          cardContent.appendChild(detailsSection);
           const effectiveValidUntil = getBookingValidUntil(booking);
+          addBookingLine(detailsSection, "Valid upto", formatValidUntil(effectiveValidUntil));
+          cardContent.appendChild(detailsSection);
           const shouldRenderQr = isTicketValid(effectiveValidUntil) && booking.qr_image;
           cardContent.classList.add(shouldRenderQr ? "with-qr" : "no-qr");
           if (shouldRenderQr) {
@@ -1084,6 +1090,7 @@
       document.getElementById("conf-journey").textContent   = data.source + "  →  " + data.destination;
       document.getElementById("conf-price").textContent     = "₹" + data.price;
       document.getElementById("conf-time").textContent      = data.booking_time;
+      const confValidUntil = data.valid_until || "";
       const restoreNote = document.getElementById("conf-restore-note");
       if (options && options.restoreMessage) {
         restoreNote.textContent = options.restoreMessage;
@@ -1094,7 +1101,7 @@
       }
 
       const confQr = document.getElementById("conf-qr-wrapper");
-      if (data.qr_url) {
+      if (data.qr_url && isTicketValid(confValidUntil)) {
         document.getElementById("conf-qr-img").src = API_BASE + data.qr_url;
         document.getElementById("download-qr-btn").dataset.ticketId = data.ticket_id || "";
         confQr.style.display = "block";

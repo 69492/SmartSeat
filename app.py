@@ -42,6 +42,9 @@ import simulation
 
 logger = logging.getLogger(__name__)
 
+MINUTES_PER_STATION_GAP = 20
+MINUTES_PER_STATION_HALT = 3
+
 # ---------------------------------------------------------------------------
 # Data path
 # ---------------------------------------------------------------------------
@@ -86,7 +89,7 @@ def calculate_ticket_validity_window(
     now_utc: datetime | None = None,
 ) -> tuple[str, str]:
     """
-    Calculate validity window from source arrival to destination arrival + 5 minutes.
+    Calculate validity window from booking start time and journey duration.
 
     Returns ISO-8601 UTC timestamps as (valid_from, valid_until).
     """
@@ -95,24 +98,25 @@ def calculate_ticket_validity_window(
     if not train:
         raise ValueError(f"Train not found: {train_no}")
 
-    arrivals = _station_arrival_map(train)
-    src_hhmm = arrivals.get(source.lower())
-    dst_hhmm = arrivals.get(destination.lower())
-    if not src_hhmm or not dst_hhmm:
-        raise ValueError("Timetable not available for selected stations.")
+    route = train.get("route", [])
+    route_normalized = [str(station).strip().lower() for station in route]
+    source_normalized = source.strip().lower()
+    destination_normalized = destination.strip().lower()
 
-    src_time = _parse_arrival_hhmm(src_hhmm)
-    dst_time = _parse_arrival_hhmm(dst_hhmm)
-    if not src_time or not dst_time:
-        raise ValueError("Invalid timetable format for selected stations.")
+    if source_normalized not in route_normalized or destination_normalized not in route_normalized:
+        raise ValueError("Stations are not available in selected train route.")
+    src_idx = route_normalized.index(source_normalized)
+    dst_idx = route_normalized.index(destination_normalized)
+    if dst_idx <= src_idx:
+        raise ValueError("Destination must come after source in route.")
 
-    current = now_utc or datetime.now(timezone.utc)
-    src_dt = current.replace(hour=src_time[0], minute=src_time[1], second=0, microsecond=0)
-    dst_dt = current.replace(hour=dst_time[0], minute=dst_time[1], second=0, microsecond=0)
-    if dst_dt < src_dt:
-        dst_dt += timedelta(days=1)
-    valid_from = src_dt
-    valid_until = dst_dt + timedelta(minutes=5)
+    station_count = (dst_idx - src_idx) + 1
+    total_minutes = (
+        ((station_count - 1) * MINUTES_PER_STATION_GAP)
+        + (station_count * MINUTES_PER_STATION_HALT)
+    )
+    valid_from = now_utc or datetime.now(timezone.utc)
+    valid_until = valid_from + timedelta(minutes=total_minutes)
 
     return valid_from.isoformat(), valid_until.isoformat()
 
@@ -461,7 +465,8 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
 
     # --- Build ticket ---
     ticket_id = f"SM-{uuid.uuid4().hex[:8].upper()}"
-    booking_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    booking_now = datetime.now(timezone.utc)
+    booking_time = booking_now.strftime("%Y-%m-%d %H:%M:%S UTC")
     price = config.TICKET_PRICE
     try:
         valid_from, valid_until = calculate_ticket_validity_window(
@@ -469,18 +474,10 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
             source=source,
             destination=destination,
             data_path=DATA_PATH,
+            now_utc=booking_now,
         )
-    except ValueError:
-        logger.exception(
-            "Failed to calculate timetable validity for train=%s, source=%s, destination=%s; "
-            "falling back to immediate short validity window.",
-            allocated["train_no"],
-            source,
-            destination,
-        )
-        now_dt = datetime.now(timezone.utc)
-        valid_from = now_dt.isoformat()
-        valid_until = (now_dt + timedelta(minutes=5)).isoformat()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     ticket = {
         "ticket_id":       ticket_id,
