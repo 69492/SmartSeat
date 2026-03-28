@@ -1035,14 +1035,17 @@
           addBookingLine(detailsSection, "Booked At", formatBookingTime(booking.timestamp));
           addBookingLine(detailsSection, "Valid upto", formatValidUntil(effectiveValidUntil));
           cardContent.appendChild(detailsSection);
-          const shouldRenderQr = isValid && bookingQrImage;
+          if (!booking.qr_image && bookingQrImage) {
+            booking.qr_image = bookingQrImage;
+          }
+          const shouldRenderQr = isValid && booking.qr_image;
           cardContent.classList.add(shouldRenderQr ? "with-qr" : "no-qr");
           if (shouldRenderQr) {
             const qrSection = document.createElement("div");
             qrSection.className = "booking-qr-section";
             const qrImg = document.createElement("img");
             qrImg.className = "booking-qr-img";
-            qrImg.src = bookingQrImage;
+            qrImg.src = booking.qr_image;
             qrImg.alt = "Ticket QR Code: " + (booking.ticket_id || "—");
             qrImg.loading = "lazy";
             qrImg.addEventListener("error", function () {
@@ -1058,7 +1061,7 @@
             downloadBtn.className = "btn btn-success booking-qr-download-btn";
             downloadBtn.textContent = "Download QR";
             downloadBtn.addEventListener("click", function () {
-              downloadQrImage(bookingQrImage, booking.ticket_id);
+              downloadQrImage(booking.qr_image, booking.ticket_id);
             });
             qrSection.appendChild(downloadBtn);
             cardContent.appendChild(qrSection);
