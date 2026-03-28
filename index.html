@@ -314,6 +314,14 @@
       background: #f8fafc;
       padding: 14px;
     }
+    .booking-card.valid {
+      border-color: #22c55e;
+      background: #f0fdf4;
+    }
+    .booking-card.invalid {
+      border-color: #f1f5f9;
+      background: #f8fafc;
+    }
     .booking-card-content {
       display: flex;
       align-items: flex-start;
@@ -1007,6 +1015,10 @@
         .forEach(function (booking) {
           const card = document.createElement("div");
           card.className = "booking-card";
+          const effectiveValidUntil = getBookingValidUntil(booking);
+          const isValid = isTicketValid(effectiveValidUntil);
+          const bookingQrImage = getBookingQrImage(booking);
+          card.classList.add(isValid ? "valid" : "invalid");
           const cardContent = document.createElement("div");
           cardContent.className = "booking-card-content";
           cardContent.classList.add("ticket-card");
@@ -1021,17 +1033,16 @@
           addBookingLine(detailsSection, "Seat", formatSeatInfo(booking));
           addBookingLine(detailsSection, "Price", booking.price != null ? "₹" + booking.price : "—");
           addBookingLine(detailsSection, "Booked At", formatBookingTime(booking.timestamp));
-          const effectiveValidUntil = getBookingValidUntil(booking);
           addBookingLine(detailsSection, "Valid upto", formatValidUntil(effectiveValidUntil));
           cardContent.appendChild(detailsSection);
-          const shouldRenderQr = isTicketValid(effectiveValidUntil) && booking.qr_image;
+          const shouldRenderQr = isValid && bookingQrImage;
           cardContent.classList.add(shouldRenderQr ? "with-qr" : "no-qr");
           if (shouldRenderQr) {
             const qrSection = document.createElement("div");
             qrSection.className = "booking-qr-section";
             const qrImg = document.createElement("img");
             qrImg.className = "booking-qr-img";
-            qrImg.src = booking.qr_image;
+            qrImg.src = bookingQrImage;
             qrImg.alt = "Ticket QR Code: " + (booking.ticket_id || "—");
             qrImg.loading = "lazy";
             qrImg.addEventListener("error", function () {
@@ -1047,7 +1058,7 @@
             downloadBtn.className = "btn btn-success booking-qr-download-btn";
             downloadBtn.textContent = "Download QR";
             downloadBtn.addEventListener("click", function () {
-              downloadQrImage(booking.qr_image, booking.ticket_id);
+              downloadQrImage(bookingQrImage, booking.ticket_id);
             });
             qrSection.appendChild(downloadBtn);
             cardContent.appendChild(qrSection);
