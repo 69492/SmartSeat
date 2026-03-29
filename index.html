@@ -663,7 +663,7 @@
         <label for="train-list">Available Trains</label>
         <div id="train-list" class="train-list"></div>
       </div>
-      <button type="button" class="btn btn-primary nav-back-btn" style="margin-top:14px">Back</button>
+      <button type="button" class="btn btn-primary nav-back-btn" style="margin-top:12px">Back</button>
     </div>
 
     <!-- ======================== STEP 3 ======================== -->
@@ -1233,15 +1233,15 @@
       const base64Data = srcParts.slice(1).join(",");
       const safeTicketId = String(ticketId || "QR").replace(/[^A-Za-z0-9_-]/g, "_");
       const fileName = "SmartSeat_Ticket_" + safeTicketId + ".png";
-      var binary = atob(base64Data);
-      var len = binary.length;
-      var bytes = new Uint8Array(len);
-      for (var i = 0; i < len; i += 1) {
+      const binary = atob(base64Data);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i += 1) {
         bytes[i] = binary.charCodeAt(i);
       }
-      var blob = new Blob([bytes], { type: mimeMatch[1] });
-      var objectUrl = URL.createObjectURL(blob);
-      var a = document.createElement("a");
+      const blob = new Blob([bytes], { type: mimeMatch[1] });
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
       a.href = objectUrl;
       a.download = fileName;
       document.body.appendChild(a);
