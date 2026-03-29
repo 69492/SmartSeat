@@ -643,6 +643,9 @@
       <button id="view-previous-btn" class="btn btn-primary" style="display:none;margin-top:12px">
         Previous Bookings
       </button>
+      <button type="button" class="btn btn-primary nav-back-btn" style="margin-top:12px">
+        Back
+      </button>
 
       <div id="spinner" class="spinner"></div>
     </div>
@@ -660,6 +663,7 @@
         <label for="train-list">Available Trains</label>
         <div id="train-list" class="train-list"></div>
       </div>
+      <button type="button" class="btn btn-primary nav-back-btn" style="margin-top:12px">Back</button>
     </div>
 
     <!-- ======================== STEP 3 ======================== -->
@@ -693,6 +697,7 @@
         </svg>
         Proceed to Payment
       </button>
+      <button type="button" class="btn btn-primary nav-back-btn" style="margin-top:12px">Back</button>
     </div>
 
     <!-- ======================== STEP 4 ======================== -->
@@ -746,7 +751,7 @@
       </h2>
       <div id="previous-bookings-empty" class="booking-empty" style="display:none">No recent bookings found.</div>
       <div id="previous-bookings-list" class="booking-list"></div>
-      <button id="close-previous-btn" class="btn btn-primary" style="margin-top:14px">Close</button>
+      <button id="close-previous-btn" class="btn btn-primary" style="margin-top:14px">Back</button>
     </div>
 
   </main>
@@ -803,6 +808,7 @@
     const previousBookingsList = document.getElementById("previous-bookings-list");
     const previousBookingsEmpty = document.getElementById("previous-bookings-empty");
     const closePreviousBtn = document.getElementById("close-previous-btn");
+    const navBackButtons = document.querySelectorAll(".nav-back-btn");
 
     /* Booking flow panels */
     const proceedBtn        = document.getElementById("proceed-btn");
@@ -872,6 +878,10 @@
 
     function getCurrentPage() {
       return sessionStorage.getItem(CURRENT_PAGE_STORAGE_KEY) || PAGE_FIND_TRAINS;
+    }
+
+    function getSavedPage() {
+      return sessionStorage.getItem(CURRENT_PAGE_STORAGE_KEY);
     }
 
     function buildFlowSnapshot() {
@@ -1000,12 +1010,12 @@
       if (!qrImageSrc) return "";
       const src = String(qrImageSrc).trim();
       if (!src) return "";
-      if (/^data:image/i.test(src)) return src;
+      if (isBase64ImageDataUrl(src)) return src;
       const compact = src.replace(/\s+/g, "");
       if (/^[A-Za-z0-9+/=]+$/.test(compact) && compact.length > 64) {
         return "data:image/png;base64," + compact;
       }
-      return src;
+      return "";
     }
 
     function getRouteForTrain(trainNo) {
@@ -1216,14 +1226,28 @@
       // Compatibility marker for existing static UI assertion: URL.createObjectURL
       const normalizedSrc = normalizeQrImageSource(qrImageSrc);
       if (!normalizedSrc || !isBase64ImageDataUrl(normalizedSrc)) return;
+      const srcParts = normalizedSrc.split(",");
+      if (srcParts.length < 2) return;
+      const mimeMatch = srcParts[0].match(/^data:(image\/[a-zA-Z0-9.+-]+);base64$/i);
+      if (!mimeMatch) return;
+      const base64Data = srcParts.slice(1).join(",");
       const safeTicketId = String(ticketId || "QR").replace(/[^A-Za-z0-9_-]/g, "_");
       const fileName = "SmartSeat_Ticket_" + safeTicketId + ".png";
-      var a = document.createElement("a");
-      a.href = normalizedSrc;
+      const binary = atob(base64Data);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: mimeMatch[1] });
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
       a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      URL.revokeObjectURL(objectUrl);
     }
 
     function enablePostPaymentBackGuard() {
@@ -1322,7 +1346,8 @@
     function restoreApplicationState() {
       restoreFlowUiState();
       rebuildTrainSelectionFromState();
-      applySavedPage(getCurrentPage());
+      const savedPage = getSavedPage();
+      applySavedPage(savedPage || PAGE_FIND_TRAINS);
     }
 
     function setupNavigationHandlers() {
@@ -1751,9 +1776,13 @@
     });
 
     closePreviousBtn.addEventListener("click", function () {
-      showStep(stepFindTrains);
-      saveFlowState();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.history.back();
+    });
+
+    navBackButtons.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        window.history.back();
+      });
     });
 
     /* =================================================================
@@ -1775,7 +1804,12 @@
     }
 
     setupNavigationHandlers();
-    showStep(stepFindTrains, { skipPersist: true });
+    const savedPageOnLoad = getSavedPage();
+    if (savedPageOnLoad) {
+      applySavedPage(savedPageOnLoad);
+    } else {
+      showStep(stepFindTrains, { skipPersist: true });
+    }
     updatePreviousBookingsButton();
     fetchTrains();
   </script>
