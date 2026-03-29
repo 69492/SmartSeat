@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
+import base64
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncGenerator
@@ -503,9 +504,12 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
     try:
         qr_path = qr_generator.generate_qr(ticket)
         qr_filename = os.path.basename(qr_path)
-    except Exception:
-        qr_path = None
-        qr_filename = None
+        with open(qr_path, "rb") as qr_file:
+            qr_image = "data:image/png;base64," + base64.b64encode(
+                qr_file.read()
+            ).decode("ascii")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Unable to generate QR code.") from exc
 
     # --- Email ---
     email_status = email_sender.send_ticket_email(ticket, qr_path=qr_path)
@@ -530,6 +534,7 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
         "valid_until":  valid_until,
         "validity":     f"Valid until arrival at {destination}",
         "status":       "CONFIRMED",
+        "qr_image":     qr_image,
         "qr_url":       f"/qr/{qr_filename}" if qr_filename else None,
         "email_status": email_status,
     }

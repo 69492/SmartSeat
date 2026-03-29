@@ -733,7 +733,7 @@
         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
-        New Booking
+        Home
       </button>
     </div>
 
@@ -828,8 +828,18 @@
 
     const BOOKING_STORAGE_KEY = "smartseat_bookings";
     const BOOKING_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+    const BOOKINGS_STORAGE_KEY = "bookings";
+    const CURRENT_PAGE_STORAGE_KEY = "currentPage";
+    const FLOW_STATE_STORAGE_KEY = "smartseat_flow_state";
+    const RESTORE_BOOKING_STORAGE_KEY = "smartseat_restore_booking";
     const PAYMENT_SUCCESS_FLAG = "smartseat_payment_success";
-    const BLOB_URL_REVOKE_DELAY_MS = 1000;
+    const PAGE_FIND_TRAINS = "find-trains";
+    const PAGE_SELECT_TRAIN = "select-train";
+    const PAGE_RESULT = "result";
+    const PAGE_CONFIRMATION = "confirmation";
+    const PAGE_PREVIOUS_BOOKINGS = "previous-bookings";
+    let postPaymentBackGuardEnabled = false;
+    let isApplyingPopState = false;
 
     /* =================================================================
      * HELPERS
@@ -846,18 +856,85 @@
       alertError.classList.remove("visible");
     }
 
-    function showStep(stepElement) {
-      [stepFindTrains, stepSelectTrain, resultPanel, confirmationPanel, previousBookingsPanel].forEach(function (el) {
-        if (!el) return;
-        el.classList.remove("active");
-      });
-      if (stepElement) {
-        stepElement.classList.add("active");
+    function pageNameForStep(stepElement) {
+      if (stepElement === stepFindTrains) return PAGE_FIND_TRAINS;
+      if (stepElement === stepSelectTrain) return PAGE_SELECT_TRAIN;
+      if (stepElement === resultPanel) return PAGE_RESULT;
+      if (stepElement === confirmationPanel) return PAGE_CONFIRMATION;
+      if (stepElement === previousBookingsPanel) return PAGE_PREVIOUS_BOOKINGS;
+      return PAGE_FIND_TRAINS;
+    }
+
+    function saveCurrentPage(pageName) {
+      sessionStorage.setItem(CURRENT_PAGE_STORAGE_KEY, pageName || PAGE_FIND_TRAINS);
+    }
+
+    function getCurrentPage() {
+      return sessionStorage.getItem(CURRENT_PAGE_STORAGE_KEY) || PAGE_FIND_TRAINS;
+    }
+
+    function buildFlowSnapshot() {
+      return {
+        source: sourceSelect.value || "",
+        destination: destSelect.value || "",
+        selectedTrainNo: selectedTrainNo || "",
+        matchedTrains: Array.isArray(matchedTrains) ? matchedTrains : [],
+        lastAllocation: lastAllocation || null,
+      };
+    }
+
+    function saveFlowState() {
+      try {
+        sessionStorage.setItem(FLOW_STATE_STORAGE_KEY, JSON.stringify(buildFlowSnapshot()));
+      } catch (err) {}
+    }
+
+    function readFlowState() {
+      const raw = sessionStorage.getItem(FLOW_STATE_STORAGE_KEY);
+      if (!raw) return null;
+      try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : null;
+      } catch (err) {
+        return null;
       }
     }
 
-    function readBookingsFromStorage() {
-      const raw = localStorage.getItem(BOOKING_STORAGE_KEY);
+    function buildBookingResponseFromStorage(booking) {
+      if (!booking) return null;
+      return {
+        ticket_id: booking.ticket_id || "",
+        name: booking.passenger_name || "",
+        age: booking.age,
+        source: booking.source || "",
+        destination: booking.destination || "",
+        price: booking.price || 0,
+        booking_time: booking.start_time ? formatBookingTime(new Date(booking.start_time).getTime()) : formatBookingTime(booking.timestamp),
+        valid_until: booking.valid_until || "",
+        qr_image: booking.qr_image || "",
+        seat_details: {
+          train_no: booking.train_no || "",
+          coach: booking.coach || "",
+          berth_no: booking.berth_no,
+          berth_type: booking.berth_type || "",
+          allocation_type: booking.allocation_type || "",
+        },
+      };
+    }
+
+    function persistBookings(bookings) {
+      if (!Array.isArray(bookings) || !bookings.length) {
+        localStorage.removeItem(BOOKING_STORAGE_KEY);
+        localStorage.removeItem(BOOKINGS_STORAGE_KEY);
+        return;
+      }
+      const serialized = JSON.stringify(bookings);
+      localStorage.setItem(BOOKING_STORAGE_KEY, serialized);
+      localStorage.setItem(BOOKINGS_STORAGE_KEY, serialized);
+    }
+
+    function readBookingsJson(keyName) {
+      const raw = localStorage.getItem(keyName);
       if (!raw) return [];
       try {
         const parsed = JSON.parse(raw);
@@ -867,12 +944,34 @@
       }
     }
 
-    function writeBookingsToStorage(bookings) {
-      if (!bookings.length) {
-        localStorage.removeItem(BOOKING_STORAGE_KEY);
-        return;
+    function showStep(stepElement, options) {
+      const config = options || {};
+      [stepFindTrains, stepSelectTrain, resultPanel, confirmationPanel, previousBookingsPanel].forEach(function (el) {
+        if (!el) return;
+        el.classList.remove("active");
+      });
+      if (stepElement) {
+        stepElement.classList.add("active");
       }
-      localStorage.setItem(BOOKING_STORAGE_KEY, JSON.stringify(bookings));
+      if (config.skipPersist) return;
+      const pageName = pageNameForStep(stepElement);
+      saveCurrentPage(pageName);
+      if (window.history && window.history.pushState && !isApplyingPopState && !postPaymentBackGuardEnabled) {
+        const statePage = window.history.state && window.history.state.page;
+        if (statePage !== pageName) {
+          window.history.pushState({ page: pageName }, "", window.location.href);
+        }
+      }
+    }
+
+    function readBookingsFromStorage() {
+      const primary = readBookingsJson(BOOKINGS_STORAGE_KEY);
+      if (primary.length) return primary;
+      return readBookingsJson(BOOKING_STORAGE_KEY);
+    }
+
+    function writeBookingsToStorage(bookings) {
+      persistBookings(bookings);
     }
 
     function cleanupExpiredBookings() {
@@ -887,8 +986,7 @@
     function getBookingQrImage(data) {
       if (!data) return "";
       if (data.qr_image) return normalizeQrImageSource(data.qr_image);
-      if (!data.qr_url) return "";
-      return /^https?:\/\//i.test(data.qr_url) ? data.qr_url : (API_BASE + data.qr_url);
+      return "";
     }
 
     function isBase64ImageDataUrl(value) {
@@ -900,37 +998,11 @@
       const src = String(qrImageSrc).trim();
       if (!src) return "";
       if (/^data:image/i.test(src)) return src;
-      if (/^https?:\/\//i.test(src)) return src;
-      if (/^\/[^/]/.test(src)) return API_BASE + src;
       const compact = src.replace(/\s+/g, "");
       if (/^[A-Za-z0-9+/=]+$/.test(compact) && compact.length > 64) {
         return "data:image/png;base64," + compact;
       }
       return src;
-    }
-
-    function blobToDataUrl(blob) {
-      return new Promise(function (resolve, reject) {
-        const reader = new FileReader();
-        reader.onloadend = function () { resolve(reader.result || ""); };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    }
-
-    async function resolveBookingQrImage(data) {
-      const normalizedSrc = getBookingQrImage(data);
-      if (!normalizedSrc) return "";
-      if (/^data:image/i.test(normalizedSrc)) return normalizedSrc;
-      try {
-        const res = await fetch(normalizedSrc);
-        if (!res.ok) return normalizedSrc;
-        const blob = await res.blob();
-        const dataUrl = await blobToDataUrl(blob);
-        return /^data:image/i.test(dataUrl) ? dataUrl : normalizedSrc;
-      } catch (err) {
-        return normalizedSrc;
-      }
     }
 
     function getRouteForTrain(trainNo) {
@@ -978,7 +1050,7 @@
       );
       const computedValidUntil = calculateTicketValidUntil(startTime, stationCount);
       const bookings = cleanupExpiredBookings();
-      const base64Image = await resolveBookingQrImage(data);
+      const base64Image = normalizeQrImageSource(data.qr_image);
       bookings.push({
         ticket_id: data.ticket_id,
         passenger_name: data.name,
@@ -999,6 +1071,7 @@
       });
       // Compatibility marker for existing static UI assertion: qr_image: getBookingQrImage(data)
       writeBookingsToStorage(bookings);
+      localStorage.setItem(RESTORE_BOOKING_STORAGE_KEY, JSON.stringify(bookings[bookings.length - 1]));
     }
 
     function updatePreviousBookingsButton() {
@@ -1138,49 +1211,127 @@
 
     function downloadQrImage(qrImageSrc, ticketId) {
       const normalizedSrc = normalizeQrImageSource(qrImageSrc);
-      if (!normalizedSrc) return;
+      if (!normalizedSrc || !isBase64ImageDataUrl(normalizedSrc)) return;
       const safeTicketId = String(ticketId || "QR").replace(/[^A-Za-z0-9_-]/g, "_");
       const fileName = "SmartSeat_Ticket_" + safeTicketId + ".png";
-      var downloadFromHref = function (href) {
-        if (!href) return;
-        var a = document.createElement("a");
-        a.href = href;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      };
-      var openInNewTab = function (href) {
-        if (!href) return;
-        window.open(href, "_blank", "noopener,noreferrer");
-      };
-      if (/^data:image/i.test(normalizedSrc)) {
-        downloadFromHref(normalizedSrc);
-        return;
-      }
-      fetch(normalizedSrc)
-        .then(function (res) {
-          if (!res.ok) throw new Error("QR fetch failed");
-          return res.blob();
-        })
-        .then(function (blob) {
-          var url = URL.createObjectURL(blob);
-          downloadFromHref(url);
-          setTimeout(function () { URL.revokeObjectURL(url); }, BLOB_URL_REVOKE_DELAY_MS);
-        })
-        .catch(function () {
-          openInNewTab(normalizedSrc);
-        });
+      var a = document.createElement("a");
+      a.href = normalizedSrc;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
 
     function enablePostPaymentBackGuard() {
       if (!(window.history && window.history.pushState)) return;
-      const previousHandler = window.onpopstate;
+      postPaymentBackGuardEnabled = true;
       window.history.pushState({ paymentSuccessGuard: true }, "", window.location.href);
-      window.onpopstate = function () {
-        window.history.pushState({ paymentSuccessGuard: true }, "", window.location.href);
-        window.onpopstate = previousHandler || null;
-      };
+    }
+
+    function disablePostPaymentBackGuard() {
+      postPaymentBackGuardEnabled = false;
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({ page: getCurrentPage() }, "", window.location.href);
+      }
+    }
+
+    function restoreFlowUiState() {
+      const flow = readFlowState();
+      if (!flow) return;
+      if (flow.source) sourceSelect.value = flow.source;
+      if (flow.destination) destSelect.value = flow.destination;
+      if (Array.isArray(flow.matchedTrains)) {
+        matchedTrains = flow.matchedTrains;
+      }
+      selectedTrainNo = flow.selectedTrainNo || "";
+      lastAllocation = flow.lastAllocation || null;
+    }
+
+    function rebuildTrainSelectionFromState() {
+      trainList.innerHTML = "";
+      if (!Array.isArray(matchedTrains) || !matchedTrains.length) return;
+      matchedTrains.forEach(function (t) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "train-option";
+        let trainCardText = t.train_no + " — " + t.train_name;
+        if (t.departure_time) {
+          trainCardText += " • Dep: " + t.departure_time;
+        }
+        if (t.arrival_time) {
+          trainCardText += " • Arr: " + t.arrival_time;
+        }
+        item.textContent = trainCardText;
+        item.dataset.trainNo = t.train_no;
+        if (t.train_no === selectedTrainNo) {
+          item.classList.add("selected");
+        }
+        item.addEventListener("click", async function () {
+          Array.from(trainList.querySelectorAll(".train-option")).forEach(function (btn) {
+            btn.classList.remove("selected");
+          });
+          item.classList.add("selected");
+          selectedTrainNo = t.train_no;
+          saveFlowState();
+          showStep(resultPanel);
+          await fetchRecommendations();
+        });
+        trainList.appendChild(item);
+      });
+    }
+
+    function applySavedPage(pageName) {
+      if (pageName === PAGE_PREVIOUS_BOOKINGS) {
+        const bookings = cleanupExpiredBookings();
+        renderPreviousBookings(bookings);
+        showStep(previousBookingsPanel, { skipPersist: true });
+        return;
+      }
+      if (pageName === PAGE_CONFIRMATION) {
+        const restoreRaw = localStorage.getItem(RESTORE_BOOKING_STORAGE_KEY);
+        if (restoreRaw) {
+          try {
+            const restored = JSON.parse(restoreRaw);
+            const payload = buildBookingResponseFromStorage(restored);
+            if (payload) {
+              renderBookingConfirmation(payload, { restoreMessage: "Session restored after refresh." });
+              latestBookingData = payload;
+            }
+          } catch (err) {}
+        }
+        showStep(confirmationPanel, { skipPersist: true });
+        return;
+      }
+      if (pageName === PAGE_RESULT) {
+        showStep(resultPanel, { skipPersist: true });
+        return;
+      }
+      if (pageName === PAGE_SELECT_TRAIN) {
+        showStep(stepSelectTrain, { skipPersist: true });
+        return;
+      }
+      showStep(stepFindTrains, { skipPersist: true });
+    }
+
+    function restoreApplicationState() {
+      restoreFlowUiState();
+      rebuildTrainSelectionFromState();
+      applySavedPage(getCurrentPage());
+    }
+
+    function setupNavigationHandlers() {
+      window.addEventListener("popstate", function (event) {
+        if (postPaymentBackGuardEnabled) {
+          window.location.replace("index.html");
+          return;
+        }
+        const statePage = event.state && event.state.page;
+        const targetPage = statePage || getCurrentPage();
+        isApplyingPopState = true;
+        applySavedPage(targetPage);
+        saveCurrentPage(targetPage);
+        isApplyingPopState = false;
+      });
     }
 
     function renderBookingConfirmation(data, options) {
@@ -1234,6 +1385,7 @@
       document.getElementById("res-journey").textContent = "";
       proceedBtn.disabled = false;
       showStep(stepFindTrains);
+      saveFlowState();
     }
 
     function openPassengerModal() {
@@ -1284,6 +1436,8 @@
         const stations = Array.from(stationSet).sort();
         populateStationDropdown(sourceSelect, stations, "— Select source —");
         populateStationDropdown(destSelect, stations, "— Select destination —");
+        restoreApplicationState();
+        saveFlowState();
       } catch (err) {
         showError("Unable to fetch train list.");
       }
@@ -1300,6 +1454,7 @@
       proceedBtn.disabled = false;
       lastAllocation = null;
       selectedRecommendation = null;
+      saveFlowState();
 
       const source = sourceSelect.value;
       const dest = destSelect.value;
@@ -1341,6 +1496,7 @@
             });
             item.classList.add("selected");
             selectedTrainNo = t.train_no;
+            saveFlowState();
             showStep(resultPanel);
             await fetchRecommendations();
           });
@@ -1352,6 +1508,7 @@
         } else {
           showStep(stepSelectTrain);
         }
+        saveFlowState();
       } catch (err) {
         showError("Unable to search trains for selected stations.");
         showStep(stepFindTrains);
@@ -1383,6 +1540,7 @@
             berth_type: item.berth_type,
             allocation_type: item.allocation_type,
           };
+          saveFlowState();
           document.getElementById("res-coach").textContent = item.coach;
           document.getElementById("res-berth").textContent = item.berth_no;
           document.getElementById("res-type").innerHTML = item.berth_type
@@ -1410,6 +1568,7 @@
       proceedBtn.disabled = false;
       lastAllocation = null;
       selectedRecommendation = null;
+      saveFlowState();
 
       const trainNo = selectedTrainNo;
       const source  = sourceSelect.value;
@@ -1468,6 +1627,7 @@
         showStep(stepFindTrains);
       } finally {
         spinner.style.display = "none";
+        saveFlowState();
       }
     }
 
@@ -1528,6 +1688,7 @@
         updatePreviousBookingsButton();
         // Keep this call for existing static UI flow assertions.
         showStep(confirmationPanel);
+        saveFlowState();
         sessionStorage.setItem(PAYMENT_SUCCESS_FLAG, "1");
         window.location.replace("index.html");
       } catch (err) {
@@ -1569,6 +1730,7 @@
      * ================================================================= */
 
     newBookingBtn.addEventListener("click", function () {
+      disablePostPaymentBackGuard();
       resetForNewBooking();
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -1578,11 +1740,13 @@
       updatePreviousBookingsButton();
       renderPreviousBookings(bookings);
       showStep(previousBookingsPanel);
+      saveFlowState();
       previousBookingsPanel.scrollIntoView({ behavior: "smooth" });
     });
 
     closePreviousBtn.addEventListener("click", function () {
       showStep(stepFindTrains);
+      saveFlowState();
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
@@ -1604,7 +1768,8 @@
       enablePostPaymentBackGuard();
     }
 
-    showStep(stepFindTrains);
+    setupNavigationHandlers();
+    showStep(stepFindTrains, { skipPersist: true });
     updatePreviousBookingsButton();
     fetchTrains();
   </script>
