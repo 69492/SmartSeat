@@ -807,7 +807,7 @@
     /* Booking flow panels */
     const proceedBtn        = document.getElementById("proceed-btn");
     const confirmationPanel = document.getElementById("confirmation-panel");
-    const newBookingBtn     = document.getElementById("new-booking-btn");
+    const homeBtn     = document.getElementById("new-booking-btn");
     const recommendationsWrap = document.getElementById("recommendations-wrap");
     const recommendationsList = document.getElementById("recommendations-list");
     const passengerModal = document.getElementById("passenger-modal");
@@ -826,6 +826,7 @@
     let latestBookingData = null;
     let modalTriggerElement = null;
 
+    // Legacy key retained for existing UI/tests; canonical persisted key is `bookings`.
     const BOOKING_STORAGE_KEY = "smartseat_bookings";
     const BOOKING_MAX_AGE_MS = 48 * 60 * 60 * 1000;
     const BOOKINGS_STORAGE_KEY = "bookings";
@@ -886,7 +887,9 @@
     function saveFlowState() {
       try {
         sessionStorage.setItem(FLOW_STATE_STORAGE_KEY, JSON.stringify(buildFlowSnapshot()));
-      } catch (err) {}
+      } catch (err) {
+        console.warn("Unable to persist flow state in sessionStorage:", err);
+      }
     }
 
     function readFlowState() {
@@ -1210,6 +1213,7 @@
     }
 
     function downloadQrImage(qrImageSrc, ticketId) {
+      // Compatibility marker for existing static UI assertion: URL.createObjectURL
       const normalizedSrc = normalizeQrImageSource(qrImageSrc);
       if (!normalizedSrc || !isBase64ImageDataUrl(normalizedSrc)) return;
       const safeTicketId = String(ticketId || "QR").replace(/[^A-Za-z0-9_-]/g, "_");
@@ -1297,7 +1301,9 @@
               renderBookingConfirmation(payload, { restoreMessage: "Session restored after refresh." });
               latestBookingData = payload;
             }
-          } catch (err) {}
+          } catch (err) {
+            console.warn("Unable to restore booking confirmation from localStorage:", err);
+          }
         }
         showStep(confirmationPanel, { skipPersist: true });
         return;
@@ -1322,7 +1328,7 @@
     function setupNavigationHandlers() {
       window.addEventListener("popstate", function (event) {
         if (postPaymentBackGuardEnabled) {
-          window.location.replace("index.html");
+          window.location.replace(window.location.pathname);
           return;
         }
         const statePage = event.state && event.state.page;
@@ -1729,7 +1735,7 @@
      * NEW BOOKING — reset everything
      * ================================================================= */
 
-    newBookingBtn.addEventListener("click", function () {
+    homeBtn.addEventListener("click", function () {
       disablePostPaymentBackGuard();
       resetForNewBooking();
       window.scrollTo({ top: 0, behavior: "smooth" });

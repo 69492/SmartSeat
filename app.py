@@ -509,6 +509,7 @@ def book_ticket(request: BookTicketRequest) -> dict[str, Any]:
                 qr_file.read()
             ).decode("ascii")
     except Exception as exc:
+        logger.exception("QR generation failed for ticket_id=%s", ticket_id)
         raise HTTPException(status_code=500, detail="Unable to generate QR code.") from exc
 
     # --- Email ---
