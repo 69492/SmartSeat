@@ -627,7 +627,7 @@
 <body>
   <nav class="top-bar" aria-label="Top navigation bar">
     <div class="top-bar-inner">
-      <button id="top-nav-btn" class="top-nav-btn" type="button" hidden></button>
+      <button id="top-nav-btn" class="top-nav-btn" type="button" hidden aria-label="Go back">Back</button>
     </div>
   </nav>
 
@@ -942,11 +942,11 @@
       topNavBtn.hidden = false;
       if (pageName === PAGE_CONFIRMATION) {
         topNavBtn.dataset.action = "home";
-        topNavBtn.textContent = "⌂ Home";
+        topNavBtn.textContent = "Home";
         topNavBtn.setAttribute("aria-label", "Go to home");
       } else {
         topNavBtn.dataset.action = "back";
-        topNavBtn.textContent = "← Back";
+        topNavBtn.textContent = "Back";
         topNavBtn.setAttribute("aria-label", "Go back");
       }
     }
