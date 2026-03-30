@@ -627,9 +627,7 @@
 <body>
   <nav class="top-bar" aria-label="Top navigation bar">
     <div class="top-bar-inner">
-      <button id="top-nav-btn" class="top-nav-btn" type="button" hidden aria-label="Go back">
-        ← Back
-      </button>
+      <button id="top-nav-btn" class="top-nav-btn" type="button" hidden></button>
     </div>
   </nav>
 
@@ -1040,7 +1038,6 @@
 
     function showStep(stepElement, options) {
       const config = options || {};
-      const pageName = pageNameForStep(stepElement);
       [stepFindTrains, stepSelectTrain, resultPanel, confirmationPanel, previousBookingsPanel].forEach(function (el) {
         if (!el) return;
         el.classList.remove("active");
@@ -1048,6 +1045,7 @@
       if (stepElement) {
         stepElement.classList.add("active");
       }
+      const pageName = pageNameForStep(stepElement);
       updateTopBarNavigation(pageName);
       if (config.skipPersist) return;
       saveCurrentPage(pageName);
