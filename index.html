@@ -22,6 +22,52 @@
       align-items: center;
     }
 
+    /* ---------- Sticky top navigation ---------- */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.95);
+      border-bottom: 1px solid #e2e8f0;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .top-bar-inner {
+      width: 100%;
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      padding: 10px 16px;
+    }
+    .top-nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 10px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      background: #fff;
+      color: #1e3a5f;
+      font-size: .92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color .2s, border-color .2s, box-shadow .2s, transform .1s;
+    }
+    .top-nav-btn:hover {
+      border-color: #94a3b8;
+      background: #f8fafc;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+    }
+    .top-nav-btn:active {
+      transform: translateY(1px);
+    }
+    .top-nav-btn[hidden] {
+      display: none;
+    }
+
     /* ---------- Header ---------- */
     header {
       width: 100%;
@@ -561,6 +607,13 @@
 
     /* ---------- Responsive tweaks ---------- */
     @media (max-width: 480px) {
+      .top-bar-inner { padding: 10px 12px; }
+      .top-nav-btn {
+        width: 100%;
+        min-height: 50px;
+        border-radius: 14px;
+        font-size: 1rem;
+      }
       header { padding: 24px 12px 20px; }
       header h1 { font-size: 1.2rem; }
       header p { font-size: .82rem; }
@@ -572,6 +625,13 @@
 </head>
 
 <body>
+  <div class="top-bar" role="navigation" aria-label="Top navigation bar">
+    <div class="top-bar-inner">
+      <button id="top-nav-btn" class="top-nav-btn" type="button" hidden aria-label="Go back">
+        ← Back
+      </button>
+    </div>
+  </div>
 
   <!-- ======================== HEADER ======================== -->
   <header>
@@ -807,6 +867,7 @@
     const previousBookingsEmpty = document.getElementById("previous-bookings-empty");
     const closePreviousBtn = document.getElementById("close-previous-btn");
     const navBackButtons = document.querySelectorAll(".nav-back-btn");
+    const topNavBtn = document.getElementById("top-nav-btn");
 
     /* Booking flow panels */
     const proceedBtn        = document.getElementById("proceed-btn");
@@ -868,6 +929,28 @@
       if (stepElement === confirmationPanel) return PAGE_CONFIRMATION;
       if (stepElement === previousBookingsPanel) return PAGE_PREVIOUS_BOOKINGS;
       return PAGE_FIND_TRAINS;
+    }
+
+    function navigateBack() {
+      window.history.back();
+    }
+
+    function updateTopBarNavigation(pageName) {
+      if (!topNavBtn) return;
+      if (pageName === PAGE_FIND_TRAINS) {
+        topNavBtn.hidden = true;
+        return;
+      }
+      topNavBtn.hidden = false;
+      if (pageName === PAGE_CONFIRMATION) {
+        topNavBtn.dataset.action = "home";
+        topNavBtn.textContent = "Home";
+        topNavBtn.setAttribute("aria-label", "Go to home");
+      } else {
+        topNavBtn.dataset.action = "back";
+        topNavBtn.textContent = "← Back";
+        topNavBtn.setAttribute("aria-label", "Go back");
+      }
     }
 
     function saveCurrentPage(pageName) {
@@ -957,6 +1040,7 @@
 
     function showStep(stepElement, options) {
       const config = options || {};
+      const pageName = pageNameForStep(stepElement);
       [stepFindTrains, stepSelectTrain, resultPanel, confirmationPanel, previousBookingsPanel].forEach(function (el) {
         if (!el) return;
         el.classList.remove("active");
@@ -964,8 +1048,8 @@
       if (stepElement) {
         stepElement.classList.add("active");
       }
+      updateTopBarNavigation(pageName);
       if (config.skipPersist) return;
-      const pageName = pageNameForStep(stepElement);
       saveCurrentPage(pageName);
       if (window.history && window.history.pushState && !isApplyingPopState && !postPaymentBackGuardEnabled) {
         const statePage = window.history.state && window.history.state.page;
@@ -1359,6 +1443,7 @@
         isApplyingPopState = true;
         applySavedPage(targetPage);
         saveCurrentPage(targetPage);
+        updateTopBarNavigation(targetPage);
         isApplyingPopState = false;
       });
     }
@@ -1774,13 +1859,23 @@
     });
 
     closePreviousBtn.addEventListener("click", function () {
-      window.history.back();
+      navigateBack();
     });
 
     navBackButtons.forEach(function (btn) {
       btn.addEventListener("click", function () {
-        window.history.back();
+        navigateBack();
       });
+    });
+
+    topNavBtn.addEventListener("click", function () {
+      if (topNavBtn.dataset.action === "home") {
+        disablePostPaymentBackGuard();
+        resetForNewBooking();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      navigateBack();
     });
 
     /* =================================================================
@@ -1805,8 +1900,10 @@
     const savedPageOnLoad = getSavedPage();
     if (savedPageOnLoad) {
       applySavedPage(savedPageOnLoad);
+      updateTopBarNavigation(savedPageOnLoad);
     } else {
       showStep(stepFindTrains, { skipPersist: true });
+      updateTopBarNavigation(PAGE_FIND_TRAINS);
     }
     updatePreviousBookingsButton();
     fetchTrains();
